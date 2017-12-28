@@ -1,0 +1,13 @@
+[submodule "vendor/github.com/jsipprell/keyctl"]
+	path = vendor/github.com/jsipprell/keyctl
+	url = https://github.com/jsipprell/keyctl
+[submodule "vendor/github.com/Gurpartap/logrus-stack"]
+	path = vendor/github.com/Gurpartap/logrus-stack
+	url = https://github.com/Gurpartap/logrus-stack
+[submodule "vendor/rp.intel.com/intel/go-losetup"]
+	path = vendor/rp.intel.com/intel/go-losetup
+	url = git@frog:intel/go-losetup
+	branch = jignesh
+[submodule "vendor/github.com/facebookgo/stack"]
+	path = vendor/github.com/facebookgo/stack
+	url = https://github.com/facebookgo/stack
