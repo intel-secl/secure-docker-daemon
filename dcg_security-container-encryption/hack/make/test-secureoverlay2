@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -e
+
+# subshell so that we can export PATH without breaking other things
+(
+
+    # check setup
+    # - we need overlay module
+    cat /proc/filesystems | grep overlay
+    if [ $? -ne 0 ]; then
+	echo "!!!! ERROR: you have to load 'overlay' into your kernel, e.g., do (as root) a 'modprobe overlay' !!!!"
+	exit 1
+    fi
+    # - we also need enough losetup devices
+    ldevs=$(ls /dev/loop* | wc --words)
+    if [ $ldevs -le 50 ]; then
+	echo "!!!! ERROR: you don't have enough loop back devices, e.g., do (as root) 'for i in $(seq 1 255); do { dev=/dev/loop${i}; if [ ! -e ${dev} ]; then echo creating device $dev; mknod $dev b 7 $i; chown root.disk $dev; chmod ug=rw,o-rwx $dev; fi } done;' !!!!"
+	exit 1
+    fi
+
+    export DOCKER_GRAPHDRIVER="secureoverlay2"
+
+
+	bundle .integration-daemon-start
+
+	bundle .integration-daemon-setup
+
+	./daemon/graphdriver/secureoverlay2/test/life-cycle-test.sh
+
+	bundle .integration-daemon-stop
+
+	if [ "$(go env GOOS)" != 'windows' ]
+	then
+		leftovers=$(ps -ax -o pid,cmd | awk '$2 == "docker-containerd-shim" && $4 ~ /.*\/bundles\/.*\/test-integration-cli/ { print $1 }')
+		if [ -n "$leftovers" ]
+		then
+			ps aux
+			kill -9 $leftovers 2> /dev/null
+			echo "!!!! WARNING you have left over shim(s), Cleanup your test !!!!"
+			exit 1
+		fi
+	fi
+
+) 2>&1 | tee -a "$DEST/test.log"
