@@ -93,9 +93,9 @@ func isDevNode() bool {
 }
 
 //unWrappKey returns actual key from wrapped key using private key on developer machine
-func unWrapKeyOnDev(privateKey string) (string, error) {
-	confPath := kms.GetConfPath()
-	wrappedKeyPath := confPath + "/wrapped_key"
+func unWrapKey(wrappedKeyPath string,privateKey string) (string, error) {
+//	confPath := kms.GetConfPath()
+//	wrappedKeyPath := confPath + filepath 
 	if _, e := os.Stat(javaPath); os.IsNotExist(e) {
 		return "", e
 	}
@@ -115,10 +115,10 @@ func unWrapKeyOnDev(privateKey string) (string, error) {
 }
 
 //unwrapaikkey unwraps the aik wrapped key using unbind aes key, binding key blob and passphrase on trusted host
-func unWrapKeyOnHost(trustpath string) (string, error) {
+func unWrapKeyWithTPM(taikpem string,trustpath string) (string, error) {
 
-	confPath := kms.GetConfPath()
-	taikpem := confPath + "/aikKey"
+	//confPath := kms.GetConfPath()
+	//taikpem := confPath + filepath 
 
 	tpma := trustpath + "/share/tpmtools/bin/tpm_unbindaeskey"
 	tpmblob := trustpath + "/configuration/bindingkey.blob"
@@ -151,8 +151,8 @@ func unWrapKeyOnHost(trustpath string) (string, error) {
 
 }
 
-//getKMSKeyonDev returns actual key used for encryption using Keytransfer Url
-func GetKMSKeyonDev(keyHandle string,skipVerify bool) (string, string, error) {
+//getKMSKeyon returns actual key used for encryption using Keytransfer Url
+func GetKMSKeyForEncryption(keyHandle string,skipVerify bool) (string, string, error) {
 	var auth = ""
 	var priKey = ""
 	if keyHandle == "" {
@@ -177,13 +177,13 @@ func GetKMSKeyonDev(keyHandle string,skipVerify bool) (string, string, error) {
 		}
 	}
 
-	err := kms.RetrieveWrappedKeyUsingAT(auth, keyHandle,skipVerify, nil)
+	filepath ,err := kms.RetrieveWrappedKeyUsingAT(auth, keyHandle,skipVerify, nil)
 	if err != nil {
 		log.Println("getKMSKeyonDev:error from RetrieveWrappedKeyUsingAT ", err)
 		return "", "", err
 	}
 
-	ky, err1 := unWrapKeyOnDev(priKey)
+	ky, err1 := unWrapKey(filepath,priKey)
 	if err1 != nil {
 		log.Println("getKMSKeyonDev:error from unWrapKey", err1)
 		return "", "", err1
@@ -202,26 +202,26 @@ func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath s
 
 	kmsconfArray := strings.Split(aikFile, "#")
 	if len(kmsconfArray) == 2 {
-		err := kms.RetrieveWrappedKeyUsingAT(kmsconfArray[0], kmsHandle,skipVerify, nil)
+		filepath,err := kms.RetrieveWrappedKeyUsingAT(kmsconfArray[0], kmsHandle,skipVerify, nil)
 		if err != nil {
 			log.Println("getKeyfromKMSforDecryption: error from RetrieveWrappedKeyUsingAT ", err)
 			return "", "", err
 		}
 
-		ky, err1 := unWrapKeyOnDev(kmsconfArray[1])
+		ky, err1 := unWrapKey(filepath,kmsconfArray[1])
 		if err1 != nil {
 			log.Println("getKeyfromKMSforDecryption: error from unWrapKey", err1)
 			return "", "", err1
 		}
 		return ky, "", nil
 	}
-	err = kms.RetrieveWrappedKeyUsingAIK(aikFile, kmsHandle, kmsProxyHost,skipVerify, nil)
+	filepath,err := kms.RetrieveWrappedKeyUsingAIK(aikFile, kmsHandle, kmsProxyHost,skipVerify, nil)
 	if err != nil {
 		log.Println("getKeyfromKMSforDecryption: error from RetrieveWrappedKeyUsingAIK", err)
 		return "", "", err
 	}
 
-	ky, er := unWrapKeyOnHost(trustpath)
+	ky, er := unWrapKeyWithTPM(filepath,trustpath)
 	if er != nil {
 		log.Println("getKeyfromKMSforDecryption: error from unWrapKeyOnHost", er)
 		return "", "", er

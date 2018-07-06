@@ -1766,10 +1766,14 @@ func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
 //fetch key using KMS API
 func getKeyFromKMS(keyHandle string) (string, string, error) {
 	skipVerify := os.Getenv("Insecure_Skip_Verify")
+	if len(skipVerify) == 0 {
+                 skipVerify = "false"
+        }
 	sv, _ := strconv.ParseBool(skipVerify)
+
 	if keyHandle == "" {
 		logrus.Debugf("getKeyFromKMS:  getting key on dev node: %s ", keyHandle)
-		return kmsutil.GetKMSKeyonDev(keyHandle,sv)
+		return kmsutil.GetKMSKeyForEncryption(keyHandle,sv)
 	}
 
 	logrus.Debugf("getKeyFromKMS:  getting key for decryption on prod node: %s ", keyHandle)
