@@ -158,7 +158,6 @@ CreateFilePath:
 
 //Get digest for docker image from docker registry
 func GetDigest(image string, tag string, dockerRegistry string, skipVerify bool) (string, error) {
-	//confPath := GetConfPath()
 	url := dockerRegistry + "/v2/" + image + "/manifests/" + tag
 
 	request, err := http.NewRequest("GET", url, nil)
@@ -195,10 +194,7 @@ func GetDigest(image string, tag string, dockerRegistry string, skipVerify bool)
 
 //Get TransferURL using docker inspect
 func GetTransferUrlFromInspect(image string, digest string, dockerRegistry string, skipVerify bool) (string, error) {
-	var keyHandle string
-
-	//Position of KeyHandle json offset
-	KEYHANDLEOFFSET := 7
+	var keyhandle []byte
 
 	url := dockerRegistry + "/v2/" + image + "/blobs/" + digest
 
@@ -231,14 +227,10 @@ func GetTransferUrlFromInspect(image string, digest string, dockerRegistry strin
 	jsonparser.ArrayEach(hist, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 		secopts, _, _, _ := jsonparser.Get(value, "securityopts")
 		sec := strings.Split(string(secopts), "\\")
-		for key, val := range sec {
-			if key == KEYHANDLEOFFSET {
-				transferURL := strings.Split(val, "\"")
-				keyHandle = strings.Join(transferURL, "")
-			}
-		}
+		secstr := strings.Join(sec,"")
+		keyhandle,_,_,_ =  jsonparser.Get([]byte(secstr), "KeyHandle")
 	})
 
-	return keyHandle, nil
+	return string(keyhandle), nil
 
 }
