@@ -48,7 +48,7 @@ func createKey() (string, string, string, error) {
 
 }
 
-//getKmsAccessConf returns AuthToken and Private Key of developer seperated by '#'
+//getKmsAccessConf returns AuthToken and Private Key of non trusted node seperated by '#'
 func getKmsAccessConf() (string, error) {
 	cmd := []string{"/usr/bin/lkp", "get_kms_config"}
 	cmdResponse, err := exec.Command(cmd[0], cmd[1]).Output()
@@ -80,22 +80,8 @@ func getHostAikKey(trustpath string) (string, error) {
 	return aikFilePath, nil
 }
 
-//checkDevNode returns true if it is a dev node (identified by issuing the lkp command), false otherwise
-func isDevNode() bool {
-	cmd := []string{"/usr/bin/lkp", "get_kms_config"}
-	cmdResponse, err := exec.Command("/bin/bash", "-c", cmd[0], cmd[1]).Output()
-	if err != nil {
-		log.Println("Its not a developer machine and AIK also does not exists for this host err: %s ", err)
-		return false
-	}
-	log.Println("Its developer machine %s ", cmdResponse)
-	return true
-}
-
-//unWrappKey returns actual key from wrapped key using private key on developer machine
+//unWrappKey returns actual key from wrapped key using private key on non trusted  machine
 func unWrapKey(wrappedKeyPath string,privateKey string) (string, error) {
-//	confPath := kms.GetConfPath()
-//	wrappedKeyPath := confPath + filepath 
 	if _, e := os.Stat(javaPath); os.IsNotExist(e) {
 		return "", e
 	}
@@ -116,10 +102,6 @@ func unWrapKey(wrappedKeyPath string,privateKey string) (string, error) {
 
 //unwrapaikkey unwraps the aik wrapped key using unbind aes key, binding key blob and passphrase on trusted host
 func unWrapKeyWithTPM(taikpem string,trustpath string) (string, error) {
-
-	//confPath := kms.GetConfPath()
-	//taikpem := confPath + filepath 
-
 	tpma := trustpath + "/share/tpmtools/bin/tpm_unbindaeskey"
 	tpmblob := trustpath + "/configuration/bindingkey.blob"
 
