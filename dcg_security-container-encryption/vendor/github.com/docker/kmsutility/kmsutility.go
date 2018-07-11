@@ -32,7 +32,6 @@ func createKey() (string, string, string, error) {
 	cmd := []string{"/usr/bin/lkp", "create_key_for_encryption"}
 	out, err := exec.Command(cmd[0], cmd[1]).Output()
 	if err != nil {
-		log.Println("lkp create_key_for_encryption error : ", err)
 		return "", "", "", err
 	}
 
@@ -40,7 +39,6 @@ func createKey() (string, string, string, error) {
 
 	err = json.Unmarshal(out, &conf)
 	if err != nil {
-		log.Println("lkp create_key_for_encryption Unmarshal error : ", err)
 		return "", "", "", err
 	}
 
@@ -51,17 +49,15 @@ func createKey() (string, string, string, error) {
 //getKmsAccessConf returns AuthToken and Private Key of non trusted node seperated by '#'
 func getKmsAccessConf() (string, error) {
 	cmd := []string{"/usr/bin/lkp", "get_kms_config"}
-	cmdResponse, err := exec.Command(cmd[0], cmd[1]).Output()
+	kmsConfig, err := exec.Command(cmd[0], cmd[1]).Output()
 	if err != nil {
-		log.Println("Its not a developer machine and lkp is not present on this host err: %s ", err)
 		return "", err
 	}
 	conf := Config{}
 
-	newerr := json.Unmarshal(cmdResponse, &conf)
-	if newerr != nil {
-		log.Println("Error to unmarshell config out from lkp :%s ", newerr)
-		return "", newerr
+	er := json.Unmarshal(kmsConfig, &conf)
+	if er != nil {
+		return "", er
 	}
 	newstr := conf.AuthToken + "#" + conf.PrivateKeyPath
 	return newstr, nil
@@ -82,28 +78,28 @@ func getHostAikKey(trustpath string) (string, error) {
 
 //unWrappKey returns actual key from wrapped key using private key on non trusted  machine
 func unWrapKey(wrappedKeyPath string,privateKey string) (string, error) {
-	if _, e := os.Stat(javaPath); os.IsNotExist(e) {
-		return "", e
+	if _, err := os.Stat(javaPath); os.IsNotExist(err) {
+		return "", err
 	}
-	key1, err := exec.Command("java", "-jar", javaPath, privateKey, wrappedKeyPath).Output()
+	ky, err := exec.Command("java", "-jar", javaPath, privateKey, wrappedKeyPath).Output()
 	if err != nil {
 		return "", err
 	}
-	k := string(key1)
-	k = strings.TrimSuffix(k, "\n")
-	k = strings.TrimSpace(k)
+	key := string(ky)
+	key = strings.TrimSuffix(key, "\n")
+	key = strings.TrimSpace(key)
 	_, err = exec.Command("/bin/rm", "-rf", wrappedKeyPath).Output()
 	if err != nil {
-		log.Println("file is not exist ", wrappedKeyPath, err)
+		log.Println("file does not exist ", wrappedKeyPath, err)
 	}
-	return k, nil
+	return key, nil
 
 }
 
 //unwrapaikkey unwraps the aik wrapped key using unbind aes key, binding key blob and passphrase on trusted host
-func unWrapKeyWithTPM(taikpem string,trustpath string) (string, error) {
-	tpma := trustpath + "/share/tpmtools/bin/tpm_unbindaeskey"
-	tpmblob := trustpath + "/configuration/bindingkey.blob"
+func unWrapKeyWithTPM(wrappedAikKeyFilePath string,trustpath string) (string, error) {
+	tpmUnbindaesKeyBinPath := trustpath + "/share/tpmtools/bin/tpm_unbindaeskey"
+	tpmblobFilePath := trustpath + "/configuration/bindingkey.blob"
 
 	cmd1 := "tagent export-config --stdout |  grep binding.key.secret   |  cut -d= -f2 "
 	out, err := exec.Command("/bin/bash", "-c", cmd1).CombinedOutput()
@@ -111,25 +107,25 @@ func unWrapKeyWithTPM(taikpem string,trustpath string) (string, error) {
 		return "", err
 	}
 
-	passphrase := string(out)
-	passphrase = strings.TrimSuffix(passphrase, "\n")
-	passphrase = strings.TrimSpace(passphrase)
+	tpmPassphrase := string(out)
+	tpmPassphrase = strings.TrimSuffix(tpmPassphrase, "\n")
+	tpmPassphrase = strings.TrimSpace(tpmPassphrase)
 
-	cmd := tpma + " -k " + tpmblob + " -i " + taikpem + " -q " + passphrase + " -x " + " | " + " base64"
+	cmd := tpmUnbindaesKeyBinPath + " -k " + tpmblobFilePath + " -i " + wrappedAikKeyFilePath + " -q " + tpmPassphrase + " -x " + " | " + " base64"
 
 	ky, er := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 	if er != nil {
 		return "", er
 	}
-	k := string(ky)
-	k = strings.TrimSuffix(k, "\n")
-	k = strings.TrimSpace(k)
+	key := string(ky)
+	key = strings.TrimSuffix(key, "\n")
+	key = strings.TrimSpace(key)
 
-	_, err = exec.Command("/bin/rm", "-rf", taikpem).Output()
+	_, err = exec.Command("/bin/rm", "-rf", wrappedAikKeyFilePath).Output()
 	if err != nil {
-		log.Println("file is not exist ", taikpem, err)
+		log.Println("file does not exist ", wrappedAikKeyFilePath, err)
 	}
-	return string(k), nil
+	return string(key), nil
 
 }
 
@@ -140,9 +136,7 @@ func GetKMSKeyForEncryption(keyHandle string,skipVerify bool) (string, string, e
 	if keyHandle == "" {
 		var err error
 		auth, priKey, keyHandle, err = createKey()
-
 		if err != nil {
-			log.Println("getKMSKeyonDev: from createKey ", err)
 			return "", "", err
 		}
 
@@ -161,24 +155,21 @@ func GetKMSKeyForEncryption(keyHandle string,skipVerify bool) (string, string, e
 
 	filepath ,err := kms.RetrieveWrappedKeyUsingAT(auth, keyHandle,skipVerify, nil)
 	if err != nil {
-		log.Println("getKMSKeyonDev:error from RetrieveWrappedKeyUsingAT ", err)
 		return "", "", err
 	}
 
-	ky, err1 := unWrapKey(filepath,priKey)
+	key, err1 := unWrapKey(filepath,priKey)
 	if err1 != nil {
-		log.Println("getKMSKeyonDev:error from unWrapKey", err1)
 		return "", "", err1
 	}
 
-	return ky, keyHandle, nil
+	return key, keyHandle, nil
 }
 
 //getKeyfromKMSforDecryption returns actual key used for encryption and Keytransfer Url which is disguised to be nil
 func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath string,skipVerify bool) (string, string, error) {
 	aikFile, err := getHostAikKey(trustpath)
 	if err != nil {
-		log.Println("getKeyfromKMSforDecryption: Error getting Key err: %s", err)
 		return "", "", err
 	}
 
@@ -186,28 +177,24 @@ func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath s
 	if len(kmsconfArray) == 2 {
 		filepath,err := kms.RetrieveWrappedKeyUsingAT(kmsconfArray[0], kmsHandle,skipVerify, nil)
 		if err != nil {
-			log.Println("getKeyfromKMSforDecryption: error from RetrieveWrappedKeyUsingAT ", err)
 			return "", "", err
 		}
 
-		ky, err1 := unWrapKey(filepath,kmsconfArray[1])
-		if err1 != nil {
-			log.Println("getKeyfromKMSforDecryption: error from unWrapKey", err1)
-			return "", "", err1
+		key, err := unWrapKey(filepath,kmsconfArray[1])
+		if err != nil {
+			return "", "", err
 		}
-		return ky, "", nil
+		return key, "", nil
 	}
 	filepath,err := kms.RetrieveWrappedKeyUsingAIK(aikFile, kmsHandle, kmsProxyHost,skipVerify, nil)
 	if err != nil {
-		log.Println("getKeyfromKMSforDecryption: error from RetrieveWrappedKeyUsingAIK", err)
 		return "", "", err
 	}
 
-	ky, er := unWrapKeyWithTPM(filepath,trustpath)
+	key, er := unWrapKeyWithTPM(filepath,trustpath)
 	if er != nil {
-		log.Println("getKeyfromKMSforDecryption: error from unWrapKeyOnHost", er)
 		return "", "", er
 	}
 
-	return ky, "", nil
+	return key, "", nil
 }

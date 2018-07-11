@@ -9,18 +9,17 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"github.com/buger/jsonparser"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+	"log"
 )
 
-//To generate random number
+//To generate random number ,the number will be used to create filenames for wrapped key
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -40,29 +39,33 @@ func String(length int) string {
 }
 
 //GetWorkDirPath to get workDirpath for temporary files
-func GetWorkDirPath() string {
-	workDirPath := "/opt/cit_k8s_extensions/work"
-	if _, err := os.Stat(workDirPath); os.IsNotExist(err) {
-		os.MkdirAll(workDirPath, 0740)
+func GetTempDirPath() string {
+	tempDirPath := "/opt/cit_k8s_extensions/tmp"
+	if _, err := os.Stat(tempDirPath); os.IsNotExist(err) {
+		os.MkdirAll(tempDirPath, 0740)
 	}
-	return workDirPath
+	return tempDirPath
 }
 
-//RetrieveWrappedKeyUsingAT KMS...
+//RetrieveWrappedKeyUsingAT KMS... Wrapped key from kms will be fetched using authorization token 
+//the json response will be unmarshalled and wrapped key will be redirected to file, filepath will be returned to calling function
 func RetrieveWrappedKeyUsingAT(authToken string, kmsURL string, skipVerify bool, requestBody []byte) (string, error) {
 	var buffer bytes.Buffer
-	workDirPath := GetWorkDirPath()
+	tempDirPath := GetTempDirPath()
 
 	goto createFilePath
 
+//create random filename for wrapped key
 createFilePath:
 	filenumber := StringWithCharset(16, charset)
-	wrappedKeyPath := workDirPath + "/" + filenumber + "_wrapped_key"
+	wrappedKeyPath := tempDirPath + "/" + filenumber + "_wrapped_key"
 	if _, err := os.Stat(wrappedKeyPath); os.IsNotExist(err) {
-		log.Println("New file has been created")
+		log.Println("New file created")
 	} else {
 		goto createFilePath
 	}
+
+	//POST call to kms to fetch wrapped key
 	request, err := http.NewRequest("POST", kmsURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return "", err
@@ -81,43 +84,51 @@ createFilePath:
 		return "", err
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		return "", errors.New(response.Status)
+	}
+
 	data, err1 := ioutil.ReadAll(response.Body)
 	if err1 != nil {
 		return "", err1
 	}
-	if response.StatusCode != 200 {
-		return "", errors.New(response.Status)
-	}
 	buf := map[string]interface{}{}
+	//the json response body from POST call will be unmarshaled and data will be populated in map
 	er := json.Unmarshal(data, &buf)
 	if er != nil {
 		return "", er
 	}
 
+	//wrapped key will written to file
 	er = ioutil.WriteFile(wrappedKeyPath, []byte(buf["key"].(string)), 0744)
 	if er != nil {
 		return "", er
 	}
+	//wrapped key filepath will be return
 	return wrappedKeyPath, nil
 }
 
-//RetrieveWrappedKeyUsingAIK ...
+//RetrieveWrappedKeyUsingAIK ...wrapped key will be fetched using aik key 
+//the response will be in octet-stream  redirected to file, filepath will be returned to calling function
 func RetrieveWrappedKeyUsingAIK(aikFile string, transferURL string, proxyHost string, skipVerify bool, requestBody []byte) (string, error) {
-	workDirPath := GetWorkDirPath()
+	tempDirPath := GetTempDirPath()
 
 	goto CreateFilePath
 
+//create random filename for wrapped key
 CreateFilePath:
 	filenumber := StringWithCharset(16, charset)
-	aikKeyPath := workDirPath + "/" + filenumber + "_aikKey"
+	aikKeyPath := tempDirPath + "/" + filenumber + "_aikKey"
 	if _, err := os.Stat(aikKeyPath); os.IsNotExist(err) {
-		log.Println("New file has been created")
+		log.Println("New file created")
 	} else {
 		goto CreateFilePath
 	}
 	entrustCert, _ := ioutil.ReadFile(aikFile)
 	body := strings.NewReader(string(entrustCert))
 
+	//POST call to kms to fetch wrapped key
 	request, err := http.NewRequest("POST", transferURL, body)
 	if err != nil {
 		return "", err
@@ -141,12 +152,14 @@ CreateFilePath:
 		return "", err
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		return "", errors.New(response.Status)
+	}
+
 	data, err1 := ioutil.ReadAll(response.Body)
 	if err1 != nil {
 		return "", err1
-	}
-	if response.StatusCode != 200 {
-		return "", errors.New(response.Status)
 	}
 	err = ioutil.WriteFile(aikKeyPath, data, 0644)
 	if err != nil {
@@ -154,83 +167,4 @@ CreateFilePath:
 	}
 
 	return aikKeyPath, nil
-}
-
-//Get digest for docker image from docker registry
-func GetDigest(image string, tag string, dockerRegistry string, skipVerify bool) (string, error) {
-	url := dockerRegistry + "/v2/" + image + "/manifests/" + tag
-
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	request.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
-	}
-
-	client := &http.Client{Transport: tr}
-	response, err := client.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	data, err1 := ioutil.ReadAll(response.Body)
-	if err1 != nil {
-		return "", err1
-	}
-	if response.StatusCode != 200 {
-		return "", errors.New(response.Status)
-	}
-
-	digest, _, _, err := jsonparser.Get(data, "config", "digest")
-	log.Println("digest output is", digest)
-
-	return string(digest), nil
-
-}
-
-//Get TransferURL using docker inspect
-func GetTransferUrlFromInspect(image string, digest string, dockerRegistry string, skipVerify bool) (string, error) {
-	var keyhandle []byte
-
-	url := dockerRegistry + "/v2/" + image + "/blobs/" + digest
-
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	request.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
-	}
-
-	client := &http.Client{Transport: tr}
-	response, err := client.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	data, err1 := ioutil.ReadAll(response.Body)
-	if err1 != nil {
-		return "", err1
-	}
-	if response.StatusCode != 200 {
-		return "", errors.New(response.Status)
-	}
-
-	hist, _, _, err := jsonparser.Get(data, "history")
-	jsonparser.ArrayEach(hist, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-		secopts, _, _, _ := jsonparser.Get(value, "securityopts")
-		sec := strings.Split(string(secopts), "\\")
-		secstr := strings.Join(sec,"")
-		keyhandle,_,_,_ =  jsonparser.Get([]byte(secstr), "KeyHandle")
-	})
-
-	return string(keyhandle), nil
-
 }
