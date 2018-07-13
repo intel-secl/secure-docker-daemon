@@ -16,7 +16,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"log"
 )
 
 //To generate random number ,the number will be used to create filenames for wrapped key
@@ -40,7 +39,7 @@ func String(length int) string {
 
 //GetWorkDirPath to get workDirpath for temporary files
 func GetTempDirPath() string {
-	tempDirPath := "/opt/cit_k8s_extensions/tmp"
+	tempDirPath := "/tmp/cit_k8s_extensions/"
 	if _, err := os.Stat(tempDirPath); os.IsNotExist(err) {
 		os.MkdirAll(tempDirPath, 0740)
 	}
@@ -58,10 +57,8 @@ func RetrieveWrappedKeyUsingAT(authToken string, kmsURL string, skipVerify bool,
 //create random filename for wrapped key
 createFilePath:
 	filenumber := StringWithCharset(16, charset)
-	wrappedKeyPath := tempDirPath + "/" + filenumber + "_wrapped_key"
-	if _, err := os.Stat(wrappedKeyPath); os.IsNotExist(err) {
-		log.Println("New file created")
-	} else {
+	wrappedKeyPath := tempDirPath + filenumber + "_wrapped_key"
+	if _, err := os.Stat(wrappedKeyPath); err == nil {
 		goto createFilePath
 	}
 
@@ -119,10 +116,8 @@ func RetrieveWrappedKeyUsingAIK(aikFile string, transferURL string, proxyHost st
 //create random filename for wrapped key
 CreateFilePath:
 	filenumber := StringWithCharset(16, charset)
-	aikKeyPath := tempDirPath + "/" + filenumber + "_aikKey"
-	if _, err := os.Stat(aikKeyPath); os.IsNotExist(err) {
-		log.Println("New file created")
-	} else {
+	aikKeyPath := tempDirPath + filenumber + "_aikKey"
+	if _, err := os.Stat(aikKeyPath); err == nil {
 		goto CreateFilePath
 	}
 	entrustCert, _ := ioutil.ReadFile(aikFile)

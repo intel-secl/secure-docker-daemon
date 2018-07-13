@@ -11,8 +11,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"log"
 	kms "github.com/docker/kmsconnector"
+	"github.com/golang/glog"
 )
 
 //java path for unwrapping wrapped key
@@ -83,15 +83,13 @@ func unWrapKey(wrappedKeyPath string,privateKey string) (string, error) {
 	}
 	ky, err := exec.Command("java", "-jar", javaPath, privateKey, wrappedKeyPath).Output()
 	if err != nil {
+		glog.Error("Divya kmsutility: Error from tagent",err)
 		return "", err
 	}
 	key := string(ky)
 	key = strings.TrimSuffix(key, "\n")
 	key = strings.TrimSpace(key)
-	_, err = exec.Command("/bin/rm", "-rf", wrappedKeyPath).Output()
-	if err != nil {
-		log.Println("file does not exist ", wrappedKeyPath, err)
-	}
+	os.Remove(wrappedKeyPath)
 	return key, nil
 
 }
@@ -102,7 +100,7 @@ func unWrapKeyWithTPM(wrappedAikKeyFilePath string,trustpath string) (string, er
 	tpmblobFilePath := trustpath + "/configuration/bindingkey.blob"
 
 	cmd1 := "tagent export-config --stdout |  grep binding.key.secret   |  cut -d= -f2 "
-	out, err := exec.Command("/bin/bash", "-c", cmd1).CombinedOutput()
+	out, err := exec.Command("/bin/bash","-c", cmd1).CombinedOutput()
 	if err != nil {
 		return "", err
 	}
@@ -121,10 +119,7 @@ func unWrapKeyWithTPM(wrappedAikKeyFilePath string,trustpath string) (string, er
 	key = strings.TrimSuffix(key, "\n")
 	key = strings.TrimSpace(key)
 
-	_, err = exec.Command("/bin/rm", "-rf", wrappedAikKeyFilePath).Output()
-	if err != nil {
-		log.Println("file does not exist ", wrappedAikKeyFilePath, err)
-	}
+	os.Remove(wrappedAikKeyFilePath)
 	return string(key), nil
 
 }
