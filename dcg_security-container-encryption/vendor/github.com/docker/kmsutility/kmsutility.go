@@ -32,6 +32,7 @@ func createKey() (string, string, string, error) {
 	cmd := []string{"/usr/bin/lkp", "create_key_for_encryption"}
 	out, err := exec.Command(cmd[0], cmd[1]).Output()
 	if err != nil {
+		glog.Errorf("kmsutility:Error in getting configuration from lkp %s",err)
 		return "", "", "", err
 	}
 
@@ -51,6 +52,7 @@ func getKmsAccessConf() (string, error) {
 	cmd := []string{"/usr/bin/lkp", "get_kms_config"}
 	kmsConfig, err := exec.Command(cmd[0], cmd[1]).Output()
 	if err != nil {
+		glog.Errorf("kmsutility:Error in getting kms configuration from lkp %s",err)
 		return "", err
 	}
 	conf := Config{}
@@ -83,7 +85,7 @@ func unWrapKey(wrappedKeyPath string,privateKey string) (string, error) {
 	}
 	ky, err := exec.Command("java", "-jar", javaPath, privateKey, wrappedKeyPath).Output()
 	if err != nil {
-		glog.Error("Divya kmsutility: Error from tagent",err)
+		glog.Errorf("kmsutility:Error in unwrap key on %v",err)
 		return "", err
 	}
 	key := string(ky)
@@ -102,6 +104,7 @@ func unWrapKeyWithTPM(wrappedAikKeyFilePath string,trustpath string) (string, er
 	cmd1 := "tagent export-config --stdout |  grep binding.key.secret   |  cut -d= -f2 "
 	out, err := exec.Command("/bin/bash","-c", cmd1).CombinedOutput()
 	if err != nil {
+		glog.Errorf("kmsutility:Error in getting passphrase on trusted host  %v",err)
 		return "", err
 	}
 
@@ -113,6 +116,7 @@ func unWrapKeyWithTPM(wrappedAikKeyFilePath string,trustpath string) (string, er
 
 	ky, er := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 	if er != nil {
+		glog.Errorf("kmsutility:Error in getting unwrap key using tpm  %v",err)
 		return "", er
 	}
 	key := string(ky)
@@ -150,6 +154,7 @@ func GetKMSKeyForEncryption(keyHandle string,skipVerify bool) (string, string, e
 
 	filepath ,err := kms.RetrieveWrappedKeyUsingAT(auth, keyHandle,skipVerify, nil)
 	if err != nil {
+		glog.Errorf("kmsutility:GetKMSKeyForEncryption: Error in getting wrapped key from kms  %v",err)
 		return "", "", err
 	}
 
@@ -172,6 +177,7 @@ func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath s
 	if len(kmsconfArray) == 2 {
 		filepath,err := kms.RetrieveWrappedKeyUsingAT(kmsconfArray[0], kmsHandle,skipVerify, nil)
 		if err != nil {
+			glog.Errorf("kmsutility:GetKeyfromKMSforDecryption: Error in getting wrapped key from kms  %v",err)
 			return "", "", err
 		}
 
@@ -183,6 +189,7 @@ func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath s
 	}
 	filepath,err := kms.RetrieveWrappedKeyUsingAIK(aikFile, kmsHandle, kmsProxyHost,skipVerify, nil)
 	if err != nil {
+		glog.Errorf("kmsutility:GetKeyfromKMSforDecryption: Error in getting wrapped key from kms on trusted host %v",err)
 		return "", "", err
 	}
 

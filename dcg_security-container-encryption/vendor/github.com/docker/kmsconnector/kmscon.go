@@ -65,7 +65,7 @@ createFilePath:
 	//POST call to kms to fetch wrapped key
 	request, err := http.NewRequest("POST", kmsURL, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return "", err
+		return "",err
 	}
 	request.Header.Set("Accept", "application/json")
 	buffer.WriteString("Token ")
@@ -126,7 +126,7 @@ CreateFilePath:
 	//POST call to kms to fetch wrapped key
 	request, err := http.NewRequest("POST", transferURL, body)
 	if err != nil {
-		return "", err
+		return "",err
 	}
 
 	request.Header.Set("Accept", "application/octet-stream")

@@ -45,6 +45,9 @@ var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
 )
+const (
+	MAXKEYPOLL  = 90
+)
 
 // This backend uses the overlay union filesystem for containers
 // with diff directories for each layer.
@@ -836,7 +839,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	if s.RequiresConfidentiality {
 		key, _, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
 		if err != nil {
-			logrus.Debugf("secureoverlay2: mountLayersFor return key %s, err %v", key,err)
+			logrus.Debugf("secureoverlay2: mountLayersFor key %s, err %v", key,err)
 			return err
 		}
 	}
@@ -1765,24 +1768,24 @@ func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
 
 //fetch key using KMS API
 func getKeyFromKMS(keyHandle string) (string, string, error) {
-	skipVerify := os.Getenv("Insecure_Skip_Verify")
+	skipVerify := os.Getenv("INSECURE_SKIP_VERIFY")
 	if len(skipVerify) == 0 {
                  skipVerify = "false"
         }
 	sv, _ := strconv.ParseBool(skipVerify)
 
 	if keyHandle == "" {
-		logrus.Debugf("getKeyFromKMS:  getting key on dev node: %s ", keyHandle)
+		logrus.Debugf("getKeyFromKMS:  getting key for encryption: %s ", keyHandle)
 		return kmsutil.GetKMSKeyForEncryption(keyHandle,sv)
 	}
 
-	logrus.Debugf("getKeyFromKMS:  getting key for decryption on prod node: %s ", keyHandle)
+	logrus.Debugf("getKeyFromKMS:  getting key for decryption on : %s ", keyHandle)
 	return getKmsKeyFromKeyring(keyHandle)
 }
 
 // fetch key from kernel keyrings
 func getKeyFromKeyrings(keyHandle string) (string, string, error) {
-	keyExpireTime := "120"
+	keyExpireTime := os.Getenv("KEY_EXPIRE_TIME_INSEC") 
 
 	// search for the key in keyring and set timeout for the key
 	searchKey := "keyctl list @u | grep " + keyHandle + " | cut -d: -f1"
@@ -1861,17 +1864,16 @@ func getKeyFromAPI(keyHandle, urlPrefix string) (string, string, error) {
 //Fetch kms key from keyring
 //wait for finite time to get key in the keyring
 func getKmsKeyFromKeyring(keyHandle string) (string, string, error) {
-	cnt := 0
+	counter := 0
 	goto GetKey
 GetKey:
 	//search for the key in keyring
 	data, _, err := getKeyFromKeyrings(keyHandle)
 	if err != nil {
-		logrus.Debugf("secureoverlay2: Error: Not able to get the key from keyring", err)
-		if cnt < 50 {
+		logrus.Debugf("secureoverlay2: Error: Not able to get the key from keyring", err,counter)
+		if counter < MAXKEYPOLL {
 			goto WaitForKey
 		}
-		cnt++
 		return "", "", err
 	}
 	logrus.Debugf("secureoverlay2: Got the key in the keyring")
@@ -1880,6 +1882,7 @@ GetKey:
 WaitForKey:
 	logrus.Debugf("secureoverlay2: Waiting for the key")
 	time.Sleep(100 * time.Millisecond)
+	counter++
 	goto GetKey
 }
 
@@ -1914,9 +1917,10 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 				 _, err = exec.Command("keyctl", "add", "user", kmstranskey, key, "@u").Output()
 				if err != nil {
 				        logrus.Debugf("secureoverlay2: Error from keyctl", err)
+					return err
 				}
 
-				logrus.Infof("secureoverlay2: securityTransform  kmsnewhandle is: %s", kmstranskey)
+				logrus.Infof("secureoverlay2: securityTransform  kms newhandle is: %s", kmstranskey)
 			}
 		}
 
