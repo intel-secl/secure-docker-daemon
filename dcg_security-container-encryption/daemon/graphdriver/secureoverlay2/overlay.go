@@ -45,6 +45,9 @@ var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
 )
+
+//the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
+//if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
 const (
 	MAXKEYPOLL  = 90
 )
@@ -122,6 +125,7 @@ const (
 //       - KeyType = constKeyTypeKeyrings:	no option
 //       - KeyType = constKeyTypeAPI:		url-prefix (actual URL will be url-prefix||key-handle
 //       - KeyType = constKeyTypeString:	key/secret to encrypt
+//	-  KeyType = constKeyTypeKMS 		key/secret to encrypt/decrypt 
 //	KeyDesc: free text description, can be used securely embed additional information into image (visible via
 //	  'docker history' or metadata extract from registry) to give context to keyhandle
 //	KeySize: size of the key to be used for encryption (in bits)
@@ -1766,7 +1770,9 @@ func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
 	return "", "", fmt.Errorf("invalid key type: %s", keyType)
 }
 
-//fetch key using KMS API
+//fetch the key for encrypt/decrypt image using kms 
+//wrapped key will be fetched from kms,unwrap that key on trusted/non trusted host 
+//once get the actual key will be used to encrypting/decrypting the image  
 func getKeyFromKMS(keyHandle string) (string, string, error) {
 	skipVerify := os.Getenv("INSECURE_SKIP_VERIFY")
 	if len(skipVerify) == 0 {
@@ -1774,16 +1780,21 @@ func getKeyFromKMS(keyHandle string) (string, string, error) {
         }
 	sv, _ := strconv.ParseBool(skipVerify)
 
+	//fetch key for encrypting the image
 	if keyHandle == "" {
 		logrus.Debugf("getKeyFromKMS:  getting key for encryption: %s ", keyHandle)
 		return kmsutil.GetKMSKeyForEncryption(keyHandle,sv)
 	}
 
+	//fetch the key for encrypting/decrypting the image
 	logrus.Debugf("getKeyFromKMS:  getting key for decryption on : %s ", keyHandle)
 	return getKmsKeyFromKeyring(keyHandle)
 }
 
-// fetch key from kernel keyrings
+//get key from kernel keyring using keyhandle
+//if key found in kernel keyring the key will be returned
+//timeout period will set on key in the kernel keyring.
+//key will not be accessible from keyring after the timeout period.
 func getKeyFromKeyrings(keyHandle string) (string, string, error) {
 	keyExpireTime := os.Getenv("KEY_EXPIRE_TIME_INSEC") 
 
@@ -1805,6 +1816,7 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
 	data = strings.TrimSuffix(data, "\n")
 	data = strings.TrimSuffix(data, " ")
 
+	//timeout period will be set on keyring
 	_, err = exec.Command("keyctl", "timeout", keyring, keyExpireTime).Output()
 	if err != nil {
 		logrus.Debugf("Error: from key ExpireAfter", err)
@@ -1861,8 +1873,9 @@ func getKeyFromAPI(keyHandle, urlPrefix string) (string, string, error) {
 	return ar.Key, "", nil
 }
 
-//Fetch kms key from keyring
-//wait for finite time to get key in the keyring
+//get kms key from keyring by polling on keyring every 100 milliseconds
+//polling will happen maximum MAXKEYPOLL times on keyring
+//if able to get key from keyring within poll time key will be returned else error will thrown 
 func getKmsKeyFromKeyring(keyHandle string) (string, string, error) {
 	counter := 0
 	goto GetKey

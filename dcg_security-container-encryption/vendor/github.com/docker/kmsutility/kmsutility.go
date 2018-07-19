@@ -65,7 +65,7 @@ func getKmsAccessConf() (string, error) {
 	return newstr, nil
 }
 
-//getHostAikKey
+//getHostAikKey check for host machine is trusted or untrusted 
 func getHostAikKey(trustpath string) (string, error) {
 	aikFilePath := trustpath + "/configuration/aik.pem"
 	if _, err := os.Stat(aikFilePath); os.IsNotExist(err) {
