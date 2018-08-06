@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"strconv"
 	kms "github.com/docker/kmsconnector"
 	"github.com/golang/glog"
 )
@@ -167,11 +168,18 @@ func GetKMSKeyForEncryption(keyHandle string,skipVerify bool) (string, string, e
 }
 
 //getKeyfromKMSforDecryption returns actual key used for encryption and Keytransfer Url which is disguised to be nil
-func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath string,skipVerify bool) (string, string, error) {
+func GetKeyfromKMSforDecryption(kmsHandle string,kmsProxyHost string,trustpath string) (string, string, error) {
 	aikFile, err := getHostAikKey(trustpath)
 	if err != nil {
 		return "", "", err
 	}
+
+	  insecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY")
+        if len(insecureSkipVerify) == 0 {
+                //if variable is not set in env default value false will be set
+                insecureSkipVerify = "false"
+        }
+        skipVerify, _ := strconv.ParseBool(insecureSkipVerify)
 
 	kmsconfArray := strings.Split(aikFile, "#")
 	if len(kmsconfArray) == 2 {
