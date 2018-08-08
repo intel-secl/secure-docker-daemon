@@ -22,10 +22,9 @@ import (
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
+var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-func StringWithCharset(length int, charset string) string {
+func stringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
@@ -33,12 +32,12 @@ func StringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
-func String(length int) string {
-	return StringWithCharset(length, charset)
+func sTring(length int) string {
+	return stringWithCharset(length, charset)
 }
 
-//GetWorkDirPath to get workDirpath for temporary files
-func GetTempDirPath() string {
+//getTempDirPath to get workDirpath for temporary files
+func getTempDirPath() string {
 	tempDirPath := "/tmp/cit_k8s_extensions/"
 	if _, err := os.Stat(tempDirPath); os.IsNotExist(err) {
 		os.MkdirAll(tempDirPath, 0740)
@@ -46,17 +45,17 @@ func GetTempDirPath() string {
 	return tempDirPath
 }
 
-//RetrieveWrappedKeyUsingAT KMS... Wrapped key from kms will be fetched using authorization token 
+//RetrieveWrappedKeyUsingAT KMS... Wrapped key from kms will be fetched using authorization token
 //the json response will be unmarshalled and wrapped key will be redirected to file, filepath will be returned to calling function
 func RetrieveWrappedKeyUsingAT(authToken string, kmsURL string, skipVerify bool, requestBody []byte) (string, error) {
 	var buffer bytes.Buffer
-	tempDirPath := GetTempDirPath()
+	tempDirPath := getTempDirPath()
 
 	goto createFilePath
 
-//create random filename for wrapped key
+	//create random filename for wrapped key
 createFilePath:
-	filenumber := StringWithCharset(16, charset)
+	filenumber := stringWithCharset(16, charset)
 	wrappedKeyPath := tempDirPath + filenumber + "_wrapped_key"
 	if _, err := os.Stat(wrappedKeyPath); err == nil {
 		goto createFilePath
@@ -65,7 +64,7 @@ createFilePath:
 	//POST call to kms to fetch wrapped key
 	request, err := http.NewRequest("POST", kmsURL, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return "",err
+		return "", err
 	}
 	request.Header.Set("Accept", "application/json")
 	buffer.WriteString("Token ")
@@ -106,16 +105,16 @@ createFilePath:
 	return wrappedKeyPath, nil
 }
 
-//RetrieveWrappedKeyUsingAIK ...wrapped key will be fetched using aik key 
+//RetrieveWrappedKeyUsingAIK ...wrapped key will be fetched using aik key
 //the response will be in octet-stream  redirected to file, filepath will be returned to calling function
 func RetrieveWrappedKeyUsingAIK(aikFile string, transferURL string, proxyHost string, skipVerify bool, requestBody []byte) (string, error) {
-	tempDirPath := GetTempDirPath()
+	tempDirPath := getTempDirPath()
 
 	goto CreateFilePath
 
-//create random filename for wrapped key
+	//create random filename for wrapped key
 CreateFilePath:
-	filenumber := StringWithCharset(16, charset)
+	filenumber := stringWithCharset(16, charset)
 	aikKeyPath := tempDirPath + filenumber + "_aikKey"
 	if _, err := os.Stat(aikKeyPath); err == nil {
 		goto CreateFilePath
@@ -126,7 +125,7 @@ CreateFilePath:
 	//POST call to kms to fetch wrapped key
 	request, err := http.NewRequest("POST", transferURL, body)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	request.Header.Set("Accept", "application/octet-stream")
