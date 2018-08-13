@@ -12,7 +12,6 @@ import (
 	"github.com/golang/glog"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -169,29 +168,10 @@ func GetKMSKeyForEncryption(keyHandle string, skipVerify bool) (string, string, 
 
 // GetKeyfromKMSforDecryption returns actual key used for encryption and Keytransfer Url which is disguised to be nil...
 func GetKeyfromKMSforDecryption(kmsHandle string) (string, string, error) {
-	var (
-		insecureSkipVerify, kmsProxyHost, trustpath string
-	)
-	insecureSkipVerify = ""
-	kmsProxyHost = ""
-	trustpath = ""
 
-	//trust_agent_path is where the trust agent binary is present
-	trustpath = os.Getenv("TRUST_AGENT_PATH")
-	if trustpath == "" {
-		//if path is not set in env default path will be set
-		trustpath = "/opt/trustagent"
-	}
-
-	//kms_proxy_host is address for kmsproxy server
-	kmsProxyHost = os.Getenv("KMS_PROXY_HOST")
-
-	insecureSkipVerify = os.Getenv("INSECURE_SKIP_VERIFY")
-	if len(insecureSkipVerify) == 0 {
-		//if variable is not set in env default value false will be set
-		insecureSkipVerify = "false"
-	}
-	skipVerify, _ := strconv.ParseBool(insecureSkipVerify)
+	ev := &EnvVariables{}
+	ev.GetEnv()
+	kmsProxyHost, trustpath, skipVerify := ev.Kmsproxyhost, ev.Trustagentpath, ev.SkipVerify
 
 	aikFile, err := getHostAikKey(trustpath)
 	if err != nil {

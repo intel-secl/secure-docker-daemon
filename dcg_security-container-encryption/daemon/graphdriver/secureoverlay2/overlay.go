@@ -1770,20 +1770,23 @@ func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
 	return "", "", fmt.Errorf("invalid key type: %s", keyType)
 }
 
+func getenv()(bool,string){
+	 ev := &kmsutil.EnvVariables{}
+        ev.GetEnv()
+        return ev.SkipVerify,ev.Keyexpiretime
+
+}
+
 //fetch the key for encrypt/decrypt image using kms 
 //wrapped key will be fetched from kms,unwrap that key on trusted/non trusted host 
 //once get the actual key will be used to encrypting/decrypting the image  
 func getKeyFromKMS(keyHandle string) (string, string, error) {
-	skipVerify := os.Getenv("INSECURE_SKIP_VERIFY")
-	if len(skipVerify) == 0 {
-                 skipVerify = "false"
-        }
-	sv, _ := strconv.ParseBool(skipVerify)
+	 skipVerify,_:= getenv()	
 
 	//fetch key for encrypting the image
 	if keyHandle == "" {
 		logrus.Debugf("getKeyFromKMS:  getting key for encryption: %s ", keyHandle)
-		return kmsutil.GetKMSKeyForEncryption(keyHandle,sv)
+		return kmsutil.GetKMSKeyForEncryption(keyHandle,skipVerify)
 	}
 
 	//fetch the key for encrypting/decrypting the image
@@ -1796,7 +1799,7 @@ func getKeyFromKMS(keyHandle string) (string, string, error) {
 //timeout period will set on key in the kernel keyring.
 //key will not be accessible from keyring after the timeout period.
 func getKeyFromKeyrings(keyHandle string) (string, string, error) {
-	keyExpireTime := os.Getenv("KEY_EXPIRE_TIME_INSEC") 
+	_,keyExpireTime := getenv() 
 
 	// search for the key in keyring and set timeout for the key
 	searchKey := "keyctl list @u | grep " + keyHandle + " | cut -d: -f1"
