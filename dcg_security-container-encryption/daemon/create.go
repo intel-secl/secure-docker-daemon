@@ -79,7 +79,6 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 		start := time.Now()
 		img, err = daemon.GetImage(params.Config.Image)
 		end := time.Since(start)
-		logrus.Debugf("Divya time taken to pull image",end)
 		if err != nil {
 			return nil, err
 		}
