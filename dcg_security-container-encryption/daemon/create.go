@@ -5,7 +5,6 @@ import (
 	"net"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -34,7 +33,6 @@ func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (conta
 }
 
 func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, managed bool) (containertypes.ContainerCreateCreatedBody, error) {
-	start := time.Now()
 	if params.Config == nil {
 		return containertypes.ContainerCreateCreatedBody{}, fmt.Errorf("Config cannot be empty in order to create a container")
 	}
