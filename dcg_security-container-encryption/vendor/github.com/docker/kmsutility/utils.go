@@ -1,3 +1,12 @@
+//Docker library for Environment variables 
+//Ensure that Environment variables  are set for secureoverlay2 and pre_fetch_plugin 
+//AUTHOR: Divya Desai <divyax.desai@intel.com>
+
+
+/*Copyright © 2018 Intel Corporation
+SPDX-License-Identifier: BSD-3-Clause
+*/
+
 package kmsutility
 
 import (

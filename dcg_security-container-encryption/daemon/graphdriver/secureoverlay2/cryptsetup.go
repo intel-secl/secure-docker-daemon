@@ -1,3 +1,10 @@
+//AUTHOR: Divya Desai <divyax.desai@intel.com>
+
+/*
+Copyright © 2018 Intel Corporation
+SPDX-License-Identifier: BSD-3-Clause
+*/
+
 package secureoverlay2
 
 import (
@@ -16,7 +23,6 @@ import (
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/Sirupsen/logrus"
-//	"github.com/freddierice/go-losetup"
 	"rp.intel.com/intel/go-losetup"
 )
 

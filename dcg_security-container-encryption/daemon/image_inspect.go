@@ -7,11 +7,13 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/layer"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 // LookupImage looks up an image by name and returns it as an ImageInspect
 // structure.
 func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
+	fmt.Println("I am inside")
 	img, err := daemon.GetImage(name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "no such image: %s", name)
