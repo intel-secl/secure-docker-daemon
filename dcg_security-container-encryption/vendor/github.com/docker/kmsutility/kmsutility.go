@@ -1,8 +1,3 @@
-//Docker Library for KMS
-//Ensures that the kms key is fetched and unwrapped for Trusted and UnTrusted nodes   
-//AUTHOR: Divya Desai <divyax.desai@intel.com>
-
-
 /*Copyright © 2018 Intel Corporation
 SPDX-License-Identifier: BSD-3-Clause
 
