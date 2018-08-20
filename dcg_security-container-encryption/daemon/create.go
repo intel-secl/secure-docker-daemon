@@ -74,7 +74,9 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 	)
 
 	if params.Config.Image != "" {
+		start := time.Now()
 		img, err = daemon.GetImage(params.Config.Image)
+		end := time.Since(start)
 		if err != nil {
 			return nil, err
 		}
