@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+        "regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,6 +53,8 @@ var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
 )
+
+var unwrappedKMSKey string
 
 //the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
 //if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
@@ -152,6 +155,7 @@ type secureStorageOptions struct {
 	CryptCipher             string `json:"CryptCipher,omitempty"`
 	CryptHashType           string `json:"CryptHashType,omitempty"`
 	RootHash                string `json:"RootHash,omitempty"`
+        KeyFilePath             string `json:"KeyFilePath,omitempty"`
 	IsEmptyLayer            bool   `json:"IsEmptyLayer"`
 	IsSecurityTransformed   bool   `json:"IsSecurityTransformed"`
 }
@@ -423,6 +427,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 				s.KeyTypeOption = ""
 				s.KeyDesc = ""
 				s.KeySize = ""
+                                s.KeyFilePath = ""
 				s.CryptCipher = ""
 			}
 			if !s.RequiresIntegrity {
@@ -465,7 +470,6 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 // The parent filesystem is used to configure these directories for the overlay.
 func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
 	logrus.Debugf("secureoverlay2: Create called w. id: %s, parent: %s, opts: %s", id, parent, opts)
-
 	storageOpts := &secureStorageOptions{}
 	storageOpts.init(d.options.defaultSecOpts)
 	driver := &Driver{}
@@ -624,6 +628,8 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStora
 			opts.KeyDesc = val
 		case "keysize":
 			opts.KeySize = val
+                case "keyfilepath":
+                        opts.KeyFilePath = val
 		case "cryptcipher":
 			opts.CryptCipher = val
 		case "crypthashtype":
@@ -848,7 +854,8 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 
 	key := ""
 	if s.RequiresConfidentiality {
-		key, _, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
+		//key, _, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
+                key, err = getKey(s.KeyFilePath)
 		if err != nil {
 			logrus.Debugf("secureoverlay2: mountLayersFor key %s, err %v", key,err)
 			return err
@@ -1753,7 +1760,34 @@ func (s secureStorageOptions) save(metaDataFile string) error {
 // ############ Key Management ##################33
 
 // Interface to retrive encryption key for the layer, using layerid as key
-func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
+func getKey(keyFilePath string) (string, error) {
+
+        logrus.Debug("secureoverlay2: getKey")
+        if unwrappedKMSKey != ""{
+            return unwrappedKMSKey, nil
+        }
+        if (keyFilePath == ""){
+                 //Todo:  add key retrieval mechanism for decryption 
+                logrus.Debugf("secureoverlay2: No key file path start decrypting")
+        }else{
+                unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-f", keyFilePath).CombinedOutput()
+                if err != nil {
+                     return "", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
+                }
+
+                re := regexp.MustCompile("[[:^ascii:]]")
+                key := string(unwrappedKey)
+                key = re.ReplaceAllLiteralString(key, "")
+                key = strings.TrimSuffix(key, "\n")
+                unwrappedKMSKey = strings.TrimSpace(key)
+                return unwrappedKMSKey, nil
+        }
+        return "", fmt.Errorf("secureoverlay2: invalid key filepath: %s", keyFilePath)
+}
+
+
+
+/*func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
 	if keyType == constKeyTypeString {
 		if keyTypeOption == "" {
 			return "", "", fmt.Errorf("secureoverlay2: undefined key (KeyTypeOption) with handle %s for KeyType==%s", keyHandle, keyType)
@@ -1775,7 +1809,7 @@ func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
 	}
 
 	return "", "", fmt.Errorf("invalid key type: %s", keyType)
-}
+}*/
 
 func getenv()(bool,string){
 	 ev := &kmsutil.EnvVariables{}
@@ -1915,7 +1949,7 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 	logrus.Debugf("secureoverlay2: securityTransform called w. id: %s/parent: %s, secopts: %v, clearDiffSize: %d", id, parent, s, clearDiffSize)
 	var (
 		key         string
-		kmstranskey string
+	//	kmstranskey string
 		err         error
 	)
 
@@ -1928,11 +1962,12 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 	logrus.Infof("secureoverlay2: securityTransform w. id: %s, do security transformation w. sec-opts: %s, crypt path: %s, mnt path: %s", id, s, diffCryptPath, diffMntPath)
 
 	if s.RequiresConfidentiality {
-		key, kmstranskey, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
+	//	key, kmstranskey, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
+                key, err = getKey(s.KeyFilePath)
 		if err != nil {
 			return err
 		}
-		if s.KeyType == constKeyTypeKMS {
+/*		if s.KeyType == constKeyTypeKMS {
 			//Update the keyhandle only when we have created a new key from KMS
 			if kmstranskey != "" {
 				s.KeyHandle = kmstranskey
@@ -1945,7 +1980,7 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 
 				logrus.Infof("secureoverlay2: securityTransform  kms newhandle is: %s", kmstranskey)
 			}
-		}
+		}*/
 
 	}
 
