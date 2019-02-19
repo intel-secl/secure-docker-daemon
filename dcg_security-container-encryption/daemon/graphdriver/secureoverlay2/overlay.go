@@ -854,8 +854,6 @@ func (d *Driver) mountLayersFor(id string) (err error) {
         keyHandle := ""
 	if s.RequiresConfidentiality {
 		//key, _, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
-                logrus.Info("mountlayer: keyfilepath", s.KeyFilePath)
-                logrus.Info("mountlayer:  s.KeyHandle", s.KeyHandle)
                 key, keyHandle, err = getKey(s.KeyFilePath, s.KeyHandle)
 		if err != nil {
 			logrus.Debugf("secureoverlay2: mountLayersFor key %s, err %v", key,err)
@@ -1881,10 +1879,7 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 
 	if s.RequiresConfidentiality {
 		key, kmstranskey, err = getKey(s.KeyFilePath, s.KeyHandle)
-                logrus.Info("securityTransform: keyfilepath", s.KeyFilePath)
-                logrus.Info("securityTransform:  s.KeyHandle", kmstranskey)
 		if err != nil {
-                        logrus.Info("praveenraj")
 			return err
 		}
 
