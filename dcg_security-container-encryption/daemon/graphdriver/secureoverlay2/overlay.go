@@ -186,6 +186,7 @@ var (
 	useNaiveDiffOnly bool
 )
 
+var processType string
 
 func init() {
 	logrus.Debug("secureoverlay2: init called")
@@ -1802,7 +1803,8 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
 // Interface to retrive encryption key for the layer, using layerid as key
 
 func getKey(keyFilePath, keyHandle  string) (string, string, error) {
-         if keyHandle == "" {
+         if keyHandle == "" || processType == "encryption" {
+             processType = "encryption"
              logrus.Debugf("getKey:  getting key for encryption: %s ", keyHandle)
              if keyFilePath != "" {
                  unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-f", keyFilePath).CombinedOutput()
@@ -1887,11 +1889,11 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 		if kmstranskey != "" {
 			s.KeyHandle = kmstranskey
 			//key is stored in kernel keyring
-			 _, err = exec.Command("keyctl", "add", "user", kmstranskey, key, "@u").Output()
-			if err != nil {
-				        logrus.Debugf("secureoverlay2: Error from keyctl", err)
-					return err
-			}
+			// _, err = exec.Command("keyctl", "add", "user", kmstranskey, key, "@u").Output()
+			//if err != nil {
+			//	        logrus.Debugf("secureoverlay2: Error from keyctl", err)
+			//		return err
+			//}
 			logrus.Infof("secureoverlay2: securityTransform  kms newhandle is: %s key is %s", kmstranskey, key)
 		}
 		
