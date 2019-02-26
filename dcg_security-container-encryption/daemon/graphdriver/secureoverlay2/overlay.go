@@ -20,13 +20,13 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-        "regexp"
+//        "regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-        "encoding/base64"
+        //"encoding/base64"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -46,7 +46,7 @@ import (
 	units "github.com/docker/go-units"
 
 	"github.com/opencontainers/runc/libcontainer/label"
-        tpmUtil "intel/isecl/lib/common/pkg/util"
+        //tpmUtil "intel/isecl/lib/common/pkg/util"
 )
 
 var (
@@ -1792,13 +1792,13 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
 //       wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
 //       wrappedKey = strings.TrimSuffix(wrappedKey, " ")
         
-        keyByte, err := tpmUtil.UnwrapKey([]byte(wrappedKey))
+        key,  err := exec.Command("wlagent", "unwrap-key", string(wrappedKey)).Output()
         if er != nil {
                 return "", "", fmt.Errorf("Could not unwrap the key using tpm")
         }
-        key := string(keyByte)
-        key = strings.TrimSuffix(key, "\n")
-        key = strings.TrimSuffix(key, " ")
+     //   key := string(keyByte)
+     //   key = strings.TrimSuffix(key, "\n")
+      //  key = strings.TrimSuffix(key, " ")
 
         //timeout period will be set on keyring
         _, err = exec.Command("keyctl", "timeout", keyring, keyExpireTime).Output()
@@ -1806,8 +1806,11 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
                 logrus.Debugf("Error: from key ExpireAfter", err)
                 return "", "", err
         }
+        unwrappedKey := string(key)
+        unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
+        unwrappedKey = strings.TrimSpace(unwrappedKey)
 
-        return key, "", nil
+        return unwrappedKey, "", nil
 }
 
 
@@ -1822,15 +1825,17 @@ func getKey(keyFilePath, keyHandle  string) (string, string, error) {
                  if err != nil {
                      return "","", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
                  }
-                 base64Key, err := base64.StdEncoding.DecodeString(string(unwrappedKey))
-                 if err != nil {
-                     return "","", fmt.Errorf("secureoverlay2: Could not do base64 decode unwrapped key %v", err)
-                 }
-                 re := regexp.MustCompile("[[:^ascii:]]")
-                 key := string(base64Key[:])
-                 key = re.ReplaceAllLiteralString(key, "")
+                 //base64Key, err := base64.StdEncoding.DecodeString(string(unwrappedKey))
+                
+                 //if err != nil {
+                 //    return "","", fmt.Errorf("secureoverlay2: Could not do base64 decode unwrapped key %v", err)
+                 //}
+                 //re := regexp.MustCompile("[[:^ascii:]]")
+                 key := string(unwrappedKey)
+                 //key = re.ReplaceAllLiteralString(key, "")
                  key = strings.TrimSuffix(key, "\n")
                  key = strings.TrimSpace(key)
+                 //key = strings.Trim(key,"\x00")
                  keyInfo := strings.Split(keyFilePath, "_")
                  logrus.Info(keyHandle)
                  logrus.Info("key value", key)
