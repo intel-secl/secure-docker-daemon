@@ -25,7 +25,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-        //"encoding/base64"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -186,12 +185,13 @@ var (
 	useNaiveDiffOnly bool
 )
 
-var processType string
+var encryptContainerImage bool
 
 func init() {
 	logrus.Debug("secureoverlay2: init called")
 	graphdriver.Register(driverName, Init)
 	logrus.Debugf("secureoverlay2: driver registered")
+        encryptContainerImage = false
 }
 
 // Init returns the a native diff driver for overlay filesystem.
@@ -852,18 +852,12 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	}
 
 	key := ""
-        keyHandle := ""
 	if s.RequiresConfidentiality {
-		//key, _, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
-                key, keyHandle, err = getKey(s.KeyFilePath, s.KeyHandle)
+                key, _, err = getKey(s.KeyFilePath, s.KeyHandle)
 		if err != nil {
 			logrus.Debugf("secureoverlay2: mountLayersFor key %s, err %v", key,err)
 			return err
 		}
-                if s.KeyHandle == "" {
-		   s.KeyHandle = keyHandle	
-		}
-                
 	}
 
 	cp := CryptParams{}
@@ -1808,8 +1802,8 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
 // Interface to retrive encryption key for the layer, using layerid as key
 
 func getKey(keyFilePath, keyHandle  string) (string, string, error) {
-         if keyHandle == "" || processType == "encryption" {
-             processType = "encryption"
+         if keyHandle == "" || encryptContainerImage {
+             encryptContainerImage = true
              logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
              if keyFilePath != "" {
                  unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-f", keyFilePath).CombinedOutput()
@@ -1878,7 +1872,7 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 	// default remote is mounted read-only, so write local no matter what
 	diffMntPath := d.getSecureCryptMntPath(id)
 
-	logrus.Infof("secureoverlay2: securityTransform w. id: %s, do security transformation w. sec-opts: %s, crypt path: %s, mnt path: %s", id, s, diffCryptPath, diffMntPath)
+	logrus.Debugf("secureoverlay2: securityTransform w. id: %s, do security transformation w. sec-opts: %s, crypt path: %s, mnt path: %s", id, s, diffCryptPath, diffMntPath)
 
 	if s.RequiresConfidentiality {
 		key, kmstranskey, err = getKey(s.KeyFilePath, s.KeyHandle)
