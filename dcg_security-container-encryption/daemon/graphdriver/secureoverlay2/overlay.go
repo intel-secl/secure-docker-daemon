@@ -20,7 +20,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-//        "regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,7 +45,6 @@ import (
 	units "github.com/docker/go-units"
 
 	"github.com/opencontainers/runc/libcontainer/label"
-        //tpmUtil "intel/isecl/lib/common/pkg/util"
 )
 
 var (
@@ -1787,18 +1785,11 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
         if er != nil {
                 return "", "", fmt.Errorf("Could not retrieve key-handle %s from user-session keyring (err=%v)", keyHandle, err)
         }
-
-//       wrappedKey := string(data)
-//       wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
-//       wrappedKey = strings.TrimSuffix(wrappedKey, " ")
         
         key,  err := exec.Command("wlagent", "unwrap-key", string(wrappedKey)).Output()
         if er != nil {
                 return "", "", fmt.Errorf("Could not unwrap the key using tpm")
         }
-     //   key := string(keyByte)
-     //   key = strings.TrimSuffix(key, "\n")
-      //  key = strings.TrimSuffix(key, " ")
 
         //timeout period will be set on keyring
         _, err = exec.Command("keyctl", "timeout", keyring, keyExpireTime).Output()
@@ -1819,7 +1810,7 @@ func getKeyFromKeyrings(keyHandle string) (string, string, error) {
 func getKey(keyFilePath, keyHandle  string) (string, string, error) {
          if keyHandle == "" || processType == "encryption" {
              processType = "encryption"
-             logrus.Debugf("getKey:  getting key for encryption: %s ", keyHandle)
+             logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
              if keyFilePath != "" {
                  unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-f", keyFilePath).CombinedOutput()
                  if err != nil {
@@ -1908,13 +1899,7 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 		//Update the keyhandle only when we have created a new key from KMS
 		if kmstranskey != "" {
 			s.KeyHandle = kmstranskey
-			//key is stored in kernel keyring
-			// _, err = exec.Command("keyctl", "add", "user", kmstranskey, key, "@u").Output()
-			//if err != nil {
-			//	        logrus.Debugf("secureoverlay2: Error from keyctl", err)
-			//		return err
-			//}
-			logrus.Infof("secureoverlay2: securityTransform  kms newhandle is: %s key is %s", kmstranskey, key)
+			logrus.Infof("secureoverlay2: securityTransform  kms handle is: %s ", kmstranskey)
 		}
 		
 
