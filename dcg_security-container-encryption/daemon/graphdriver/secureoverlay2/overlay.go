@@ -1816,20 +1816,10 @@ func getKey(keyFilePath, keyHandle  string) (string, string, error) {
                  if err != nil {
                      return "","", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
                  }
-                 //base64Key, err := base64.StdEncoding.DecodeString(string(unwrappedKey))
-                
-                 //if err != nil {
-                 //    return "","", fmt.Errorf("secureoverlay2: Could not do base64 decode unwrapped key %v", err)
-                 //}
-                 //re := regexp.MustCompile("[[:^ascii:]]")
                  key := string(unwrappedKey)
-                 //key = re.ReplaceAllLiteralString(key, "")
                  key = strings.TrimSuffix(key, "\n")
                  key = strings.TrimSpace(key)
-                 //key = strings.Trim(key,"\x00")
                  keyInfo := strings.Split(keyFilePath, "_")
-                 logrus.Info(keyHandle)
-                 logrus.Info("key value", key)
                  return key, keyInfo[1], nil
              }else{
                  return "","", fmt.Errorf("secureoverlay2: keyFilePath empty")
