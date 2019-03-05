@@ -1806,7 +1806,7 @@ func getKey(keyFilePath, keyHandle  string) (string, string, error) {
              encryptContainerImage = true
              logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
              if keyFilePath != "" {
-                 unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-f", keyFilePath).CombinedOutput()
+                 unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-i", keyFilePath).CombinedOutput()
                  if err != nil {
                      return "","", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
                  }
