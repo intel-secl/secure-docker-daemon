@@ -1822,7 +1822,7 @@ func getKey(keyFilePath, keyHandle  string) (string, string, error) {
         }
 
         //fetch the key for encrypting/decrypting the image
-        logrus.Debugf("getKeyFromKMS:  getting key for decryption on : %s ", keyHandle)
+        logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
         return getKmsKeyFromKeyring(keyHandle)
 }
 
@@ -1859,7 +1859,7 @@ WaitForKey:
 // perform any security transforms as specified by security options
 // this assumes either or both of confidentiality or integrity is required!
 func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, clearDiffTar io.ReadCloser, clearDiffSize int64) error {
-	logrus.Infof("secureoverlay2: securityTransform called w. id: %s/parent: %s, secopts: %v, clearDiffSize: %d", id, parent, s, clearDiffSize)
+	logrus.Debugf("secureoverlay2: securityTransform called w. id: %s/parent: %s, secopts: %v, clearDiffSize: %d", id, parent, s, clearDiffSize)
 	var (
 		key         string
 		kmstranskey string
