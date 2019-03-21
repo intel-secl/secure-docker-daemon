@@ -42,7 +42,6 @@ import (
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	units "github.com/docker/go-units"
-
 	"github.com/opencontainers/runc/libcontainer/label"
 )
 
@@ -1762,35 +1761,24 @@ func (s secureStorageOptions) save(metaDataFile string) error {
 //timeout period will set on key in the kernel keyring.
 //key will not be accessible from keyring after the timeout period.
 
-func getKeyFromKeyrings(keyHandle string) (string, string, error) {
+func getKeyFromKeyCache(keyHandle string) (string, string, error) {
+        //TODO Get timeout for Key in Workload agent KeyCache
         //_,keyExpireTime := getenv()
-        keyExpireTime := "120"
-        // search for the key in keyring and set timeout for the key
-        searchKey := "keyctl list @u | grep " + keyHandle + " | cut -d: -f1"
-        out, err := exec.Command("/bin/bash", "-c", searchKey).CombinedOutput()
+        // search for the key in keycache
+        out, err := exec.Command("wlagent", "get-key-from-keycache", keyHandle).CombinedOutput()
         if err != nil {
                 return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
         }
-        keyring := string(out)
-        keyring = strings.TrimSuffix(keyring, "\n")
-        keyring = strings.TrimSuffix(keyring, " ")
-
-        wrappedKey, er := exec.Command("keyctl", "print", keyring).Output()
-        if er != nil {
-                return "", "", fmt.Errorf("Could not retrieve key-handle %s from user-session keyring (err=%v)", keyHandle, err)
-        }
+        wrappedKey := string(out)
+        wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
+        wrappedKey = strings.TrimSuffix(wrappedKey, " ")
         
-        key,  err := exec.Command("wlagent", "unwrap-key", string(wrappedKey)).Output()
-        if er != nil {
+        key,  err := exec.Command("wlagent", "unwrap-key", wrappedKey).Output()
+        if err != nil {
                 return "", "", fmt.Errorf("Could not unwrap the key using tpm")
         }
 
-        //timeout period will be set on keyring
-        _, err = exec.Command("keyctl", "timeout", keyring, keyExpireTime).Output()
-        if err != nil {
-                logrus.Debugf("Error: from key ExpireAfter", err)
-                return "", "", err
-        }
+        //TODO reset timeout after reading the key
         unwrappedKey := string(key)
         unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
         unwrappedKey = strings.TrimSpace(unwrappedKey)
@@ -1823,7 +1811,7 @@ func getKey(keyFilePath, keyHandle  string) (string, string, error) {
 
         //fetch the key for encrypting/decrypting the image
         logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
-        return getKmsKeyFromKeyring(keyHandle)
+        return getKmsKeyFromKeyCache(keyHandle)
 }
 
 
@@ -1832,12 +1820,12 @@ func getKey(keyFilePath, keyHandle  string) (string, string, error) {
 //polling will happen maximum MAXKEYPOLL times on keyring
 //if able to get key from keyring within poll time key will be returned else error will thrown 
 
-func getKmsKeyFromKeyring(keyHandle string) (string, string, error) {
+func getKmsKeyFromKeyCache(keyHandle string) (string, string, error) {
 	counter := 0
 	goto GetKey
 GetKey:
 	//search for the key in keyring
-	data, _, err := getKeyFromKeyrings(keyHandle)
+	data, _, err := getKeyFromKeyCache(keyHandle)
 	if err != nil {
 		logrus.Debugf("secureoverlay2: Error: Not able to get the key from keyring", err,counter)
 		if counter < MAXKEYPOLL {
@@ -1850,7 +1838,7 @@ GetKey:
 
 WaitForKey:
 	logrus.Debugf("secureoverlay2: Waiting for the key")
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	counter++
 	goto GetKey
 }
