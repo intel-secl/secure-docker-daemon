@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -43,8 +42,6 @@ import (
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	units "github.com/docker/go-units"
-
-	kmsutil "github.com/docker/kmsutility"
 	"github.com/opencontainers/runc/libcontainer/label"
 )
 
@@ -52,6 +49,7 @@ var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
 )
+
 
 //the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
 //if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
@@ -152,6 +150,7 @@ type secureStorageOptions struct {
 	CryptCipher             string `json:"CryptCipher,omitempty"`
 	CryptHashType           string `json:"CryptHashType,omitempty"`
 	RootHash                string `json:"RootHash,omitempty"`
+        KeyFilePath             string `json:"KeyFilePath,omitempty"`
 	IsEmptyLayer            bool   `json:"IsEmptyLayer"`
 	IsSecurityTransformed   bool   `json:"IsSecurityTransformed"`
 }
@@ -185,10 +184,13 @@ var (
 	useNaiveDiffOnly bool
 )
 
+var encryptContainerImage bool
+
 func init() {
 	logrus.Debug("secureoverlay2: init called")
 	graphdriver.Register(driverName, Init)
 	logrus.Debugf("secureoverlay2: driver registered")
+        encryptContainerImage = false
 }
 
 // Init returns the a native diff driver for overlay filesystem.
@@ -423,6 +425,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 				s.KeyTypeOption = ""
 				s.KeyDesc = ""
 				s.KeySize = ""
+                                s.KeyFilePath = ""
 				s.CryptCipher = ""
 			}
 			if !s.RequiresIntegrity {
@@ -465,7 +468,6 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 // The parent filesystem is used to configure these directories for the overlay.
 func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
 	logrus.Debugf("secureoverlay2: Create called w. id: %s, parent: %s, opts: %s", id, parent, opts)
-
 	storageOpts := &secureStorageOptions{}
 	storageOpts.init(d.options.defaultSecOpts)
 	driver := &Driver{}
@@ -624,6 +626,8 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStora
 			opts.KeyDesc = val
 		case "keysize":
 			opts.KeySize = val
+                case "keyfilepath":
+                        opts.KeyFilePath = val
 		case "cryptcipher":
 			opts.CryptCipher = val
 		case "crypthashtype":
@@ -848,7 +852,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 
 	key := ""
 	if s.RequiresConfidentiality {
-		key, _, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
+                key, _, err = getKey(s.KeyFilePath, s.KeyHandle)
 		if err != nil {
 			logrus.Debugf("secureoverlay2: mountLayersFor key %s, err %v", key,err)
 			return err
@@ -1750,148 +1754,78 @@ func (s secureStorageOptions) save(metaDataFile string) error {
 	return nil
 }
 
-// ############ Key Management ##################33
-
-// Interface to retrive encryption key for the layer, using layerid as key
-func getKey(keyHandle, keyType, keyTypeOption string) (string, string, error) {
-	if keyType == constKeyTypeString {
-		if keyTypeOption == "" {
-			return "", "", fmt.Errorf("secureoverlay2: undefined key (KeyTypeOption) with handle %s for KeyType==%s", keyHandle, keyType)
-		} else {
-			return keyTypeOption, "", nil
-		}
-	}
-
-	if keyType == constKeyTypeKeyrings {
-		return getKeyFromKeyrings(keyHandle)
-	}
-
-	if keyType == constKeyTypeAPI {
-		return getKeyFromAPI(keyHandle, keyTypeOption)
-	}
-
-	if keyType == constKeyTypeKMS {
-		return getKeyFromKMS(keyHandle)
-	}
-
-	return "", "", fmt.Errorf("invalid key type: %s", keyType)
-}
-
-func getenv()(bool,string){
-	 ev := &kmsutil.EnvVariables{}
-        ev.GetEnv()
-        return ev.SkipVerify,ev.Keyexpiretime
-
-}
-
-//fetch the key for encrypt/decrypt image using kms 
-//wrapped key will be fetched from kms,unwrap that key on trusted/non trusted host 
-//once get the actual key will be used to encrypting/decrypting the image  
-func getKeyFromKMS(keyHandle string) (string, string, error) {
-	 skipVerify,_:= getenv()	
-
-	//fetch key for encrypting the image
-	if keyHandle == "" {
-		logrus.Debugf("getKeyFromKMS:  getting key for encryption: %s ", keyHandle)
-		return kmsutil.GetKMSKeyForEncryption(keyHandle,skipVerify)
-	}
-
-	//fetch the key for encrypting/decrypting the image
-	logrus.Debugf("getKeyFromKMS:  getting key for decryption on : %s ", keyHandle)
-	return getKmsKeyFromKeyring(keyHandle)
-}
+// ############ Key Management ##################
 
 //get key from kernel keyring using keyhandle
 //if key found in kernel keyring the key will be returned
 //timeout period will set on key in the kernel keyring.
 //key will not be accessible from keyring after the timeout period.
-func getKeyFromKeyrings(keyHandle string) (string, string, error) {
-	_,keyExpireTime := getenv() 
 
-	// search for the key in keyring and set timeout for the key
-	searchKey := "keyctl list @u | grep " + keyHandle + " | cut -d: -f1"
-	out, err := exec.Command("/bin/bash", "-c", searchKey).CombinedOutput()
-	if err != nil {
-		return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
-	}
-	keyring := string(out)
-	keyring = strings.TrimSuffix(keyring, "\n")
-	keyring = strings.TrimSuffix(keyring, " ")
-	key, er := exec.Command("keyctl", "print", keyring).Output()
-	if er != nil {
-		return "", "", fmt.Errorf("Could not retrieve key-handle %s from user-session keyring (err=%v)", keyHandle, err)
-	}
+func getKeyFromKeyCache(keyHandle string) (string, string, error) {
+        //TODO Get timeout for Key in Workload agent KeyCache
+        //_,keyExpireTime := getenv()
+        // search for the key in keycache
+        out, err := exec.Command("wlagent", "get-key-from-keycache", keyHandle).CombinedOutput()
+        if err != nil {
+                return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
+        }
+        wrappedKey := string(out)
+        wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
+        wrappedKey = strings.TrimSuffix(wrappedKey, " ")
+        
+        key,  err := exec.Command("wlagent", "unwrap-key", wrappedKey).Output()
+        if err != nil {
+                return "", "", fmt.Errorf("Could not unwrap the key using tpm")
+        }
 
-	data := string(key)
-	data = strings.TrimSuffix(data, "\n")
-	data = strings.TrimSuffix(data, " ")
+        //TODO reset timeout after reading the key
+        unwrappedKey := string(key)
+        unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
+        unwrappedKey = strings.TrimSpace(unwrappedKey)
 
-	//timeout period will be set on keyring
-	_, err = exec.Command("keyctl", "timeout", keyring, keyExpireTime).Output()
-	if err != nil {
-		logrus.Debugf("Error: from key ExpireAfter", err)
-		return "", "", err
-	}
-
-	return data, "", nil
+        return unwrappedKey, "", nil
 }
 
-//fetch key using REST/WEB API
-func getKeyFromAPI(keyHandle, urlPrefix string) (string, string, error) {
-	var url string
-	if urlPrefix == "" {
-		url = keyHandle
-	} else {
-		url = fmt.Sprintf("%s%s", urlPrefix, keyHandle)
-	}
 
-	// rest API must return JSON data with field key
-	type apiResponse struct {
-		Key string `json:"key"`
-	}
+// Interface to retrive encryption key for the layer, using layerid as key
 
-	r, err := http.Get(url)
-	if err != nil {
-		return "", "", fmt.Errorf("Cannot retrieve key from key-retrieval url=%s (err=%v)", url, err)
-	}
+func getKey(keyFilePath, keyHandle  string) (string, string, error) {
+         if keyHandle == "" || encryptContainerImage {
+             encryptContainerImage = true
+             logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
+             if keyFilePath != "" {
+                 unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-i", keyFilePath).CombinedOutput()
+                 if err != nil {
+                     return "","", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
+                 }
+                 key := string(unwrappedKey)
+                 key = strings.TrimSuffix(key, "\n")
+                 key = strings.TrimSpace(key)
+                 keyInfo := strings.Split(keyFilePath, "_")
+                 return key, keyInfo[1], nil
+             }else{
+                 return "","", fmt.Errorf("secureoverlay2: keyFilePath empty")
+             }
 
-	code := r.StatusCode
-	if code != 200 {
-		return "", "", fmt.Errorf("Invalid HTTP status code for key-retrieval url %s: %d", url, code)
-	}
+        }
 
-	defer r.Body.Close()
-
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return "", "", err
-	}
-
-	ar := apiResponse{
-		Key: "",
-	}
-
-	err = json.Unmarshal([]byte(data), &ar)
-	if err != nil {
-		return "", "", fmt.Errorf("Cannot unmarshall encoded key %s for key-retrieval url=%s (err=%v)", data, url, err)
-	}
-
-	if ar.Key == "" {
-		return "", "", fmt.Errorf("No key found in the HTTP response for key-retrieval url=%s", url)
-	}
-
-	return ar.Key, "", nil
+        //fetch the key for encrypting/decrypting the image
+        logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
+        return getKmsKeyFromKeyCache(keyHandle)
 }
+
+
 
 //get kms key from keyring by polling on keyring every 100 milliseconds
 //polling will happen maximum MAXKEYPOLL times on keyring
 //if able to get key from keyring within poll time key will be returned else error will thrown 
-func getKmsKeyFromKeyring(keyHandle string) (string, string, error) {
+
+func getKmsKeyFromKeyCache(keyHandle string) (string, string, error) {
 	counter := 0
 	goto GetKey
 GetKey:
 	//search for the key in keyring
-	data, _, err := getKeyFromKeyrings(keyHandle)
+	data, _, err := getKeyFromKeyCache(keyHandle)
 	if err != nil {
 		logrus.Debugf("secureoverlay2: Error: Not able to get the key from keyring", err,counter)
 		if counter < MAXKEYPOLL {
@@ -1904,10 +1838,11 @@ GetKey:
 
 WaitForKey:
 	logrus.Debugf("secureoverlay2: Waiting for the key")
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	counter++
 	goto GetKey
 }
+
 
 // perform any security transforms as specified by security options
 // this assumes either or both of confidentiality or integrity is required!
@@ -1925,27 +1860,20 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 	// default remote is mounted read-only, so write local no matter what
 	diffMntPath := d.getSecureCryptMntPath(id)
 
-	logrus.Infof("secureoverlay2: securityTransform w. id: %s, do security transformation w. sec-opts: %s, crypt path: %s, mnt path: %s", id, s, diffCryptPath, diffMntPath)
+	logrus.Debugf("secureoverlay2: securityTransform w. id: %s, do security transformation w. sec-opts: %s, crypt path: %s, mnt path: %s", id, s, diffCryptPath, diffMntPath)
 
 	if s.RequiresConfidentiality {
-		key, kmstranskey, err = getKey(s.KeyHandle, s.KeyType, s.KeyTypeOption)
+		key, kmstranskey, err = getKey(s.KeyFilePath, s.KeyHandle)
 		if err != nil {
 			return err
 		}
-		if s.KeyType == constKeyTypeKMS {
-			//Update the keyhandle only when we have created a new key from KMS
-			if kmstranskey != "" {
-				s.KeyHandle = kmstranskey
-				//key is stored in kernel keyring
-				 _, err = exec.Command("keyctl", "add", "user", kmstranskey, key, "@u").Output()
-				if err != nil {
-				        logrus.Debugf("secureoverlay2: Error from keyctl", err)
-					return err
-				}
 
-				logrus.Infof("secureoverlay2: securityTransform  kms newhandle is: %s", kmstranskey)
-			}
+		//Update the keyhandle only when we have created a new key from KMS
+		if kmstranskey != "" {
+			s.KeyHandle = kmstranskey
+			logrus.Infof("secureoverlay2: securityTransform  kms handle is: %s ", kmstranskey)
 		}
+		
 
 	}
 
