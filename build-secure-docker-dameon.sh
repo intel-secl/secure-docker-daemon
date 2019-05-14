@@ -39,6 +39,7 @@ fi
 cp -f $GRAPHDRIVER/register_overlay.go $DOCKER_CE_ENGINE/daemon/graphdriver/register/register_overlay.go
 cp -f $GRAPHDRIVER/driver_linux.go $DOCKER_CE_ENGINE/daemon/graphdriver/driver_linux.go
 cp -f docker-engine/Dockerfile $DOCKER_CE_ENGINE/
+cp -f docker-engine/Makefile $DOCKER_CE_ENGINE/
 cp -rf $SECURE_OVERLAY_DIR $DOCKER_CE_ENGINE/daemon/graphdriver/
 cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
 

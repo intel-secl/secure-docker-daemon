@@ -9,7 +9,7 @@ DOCKER_BUILD := out
 .PHONY: all clean
 
 installer:
-	mkdir out
+	mkdir -p out
 	chmod +x build-secure-docker-dameon.sh
 	./build-secure-docker-dameon.sh
 	cp -f $(DOCKER_CE_CLI)/build/docker-linux-amd64 $(DOCKER_BUILD)/docker
