@@ -6,6 +6,7 @@ SECURE_OVERLAY_DIR=`pwd`/secureoverlay2
 DOCKER_BUILD=`pwd`/out
 DEPS_DIR=`pwd`/vendor
 DOCKER_CE=`pwd`/docker-ce
+DOCKER_ENGINE=`pwd`/docker-engine
 BUILD_DIR=`pwd`
 
 git clone https://github.com/docker/docker-ce.git
@@ -29,7 +30,7 @@ cp -f $DOCKER_CLI/client.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/api/t
 cp -f $DOCKER_CLI/Dockerfile.dev $DOCKER_CE_CLI/dockerfiles/Dockerfile.dev
 
 make --directory=$DOCKER_CE_CLI -f docker.Makefile binary
-
+sudo chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
 if [ $? -ne 0 ];
 then
   echo "Error while building docker cli, exiting"
@@ -38,8 +39,8 @@ fi
 
 cp -f $GRAPHDRIVER/register_overlay.go $DOCKER_CE_ENGINE/daemon/graphdriver/register/register_overlay.go
 cp -f $GRAPHDRIVER/driver_linux.go $DOCKER_CE_ENGINE/daemon/graphdriver/driver_linux.go
-cp -f docker-engine/Dockerfile $DOCKER_CE_ENGINE/
-cp -f docker-engine/Makefile $DOCKER_CE_ENGINE/
+cp -f $DOCKER_ENGINE/Dockerfile $DOCKER_CE_ENGINE/
+cp -f $DOCKER_ENGINE/Makefile $DOCKER_CE_ENGINE/
 cp -rf $SECURE_OVERLAY_DIR $DOCKER_CE_ENGINE/daemon/graphdriver/
 cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
 

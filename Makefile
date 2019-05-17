@@ -25,4 +25,4 @@ all: installer
 
 clean:
 	rm -rf out/
-	rm -rf docker-ce/
+	sudo rm -rf docker-ce/
