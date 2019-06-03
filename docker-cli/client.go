@@ -177,6 +177,7 @@ type ImageBuildOptions struct {
 	// specified here do not need to have a valid parent chain to match cache.
 	CacheFrom   []string
 	SecurityOpt []string
+	//Added back StorageOpt to support secureoverlay2
 	StorageOpt  []string
 	ExtraHosts  []string // List of extra hosts
 	Target      string

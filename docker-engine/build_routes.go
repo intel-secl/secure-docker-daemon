@@ -132,7 +132,7 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
 		options.Labels = labels
 	}
 
-	//To support storage opt for secureoverlay
+	//Added back StorageOpt to support secureoverlay2
 	storageOpt := r.FormValue("storageopt")
 	if storageOpt != "" {
                   var storageopt = []string{}

@@ -1784,7 +1784,7 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 
         //TODO reset timeout after reading the key
         unwrappedKey := string(key)
-	unwrappedKey = string("unwrappedKey")
+	unwrappedKey = string(unwrappedKey)
         unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
         unwrappedKey = strings.TrimSpace(unwrappedKey)
 

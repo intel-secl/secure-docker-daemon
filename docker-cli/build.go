@@ -649,6 +649,7 @@ func imageBuildOptions(dockerCli command.Cli, options buildOptions) types.ImageB
 		Labels:         opts.ConvertKVStringsToMap(options.labels.GetAll()),
 		CacheFrom:      options.cacheFrom,
 		SecurityOpt:    options.securityOpt,
+		//Added back StorageOpt to support secureoverlay2
 		StorageOpt:     options.storageOpt,
 		NetworkMode:    options.networkMode,
 		Squash:         options.squash,

@@ -116,6 +116,7 @@ func (cli *Client) imageBuildOptionsToQuery(options types.ImageBuildOptions) (ur
 	}
 	query.Set("labels", string(labelsJSON))
 	
+	//Added back StorageOpt to support secureoverlay2
 	storageOpt, err := json.Marshal(options.StorageOpt)
         if err != nil {
                 return query, err

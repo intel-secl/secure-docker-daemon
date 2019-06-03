@@ -488,7 +488,8 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
 		MemorySwap:   options.MemorySwap,
 		Ulimits:      options.Ulimits,
 	}
-	
+
+	//Added back StorageOpt to support secureoverlay2	
 	storageOpt := getSecureStorageOpts(options)
 
 	hc := &container.HostConfig{
