@@ -22,7 +22,7 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"rp.intel.com/intel/go-losetup"
 )
 

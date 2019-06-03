@@ -13,13 +13,7 @@ installer:
 	chmod +x build-secure-docker-dameon.sh
 	./build-secure-docker-dameon.sh
 	cp -f $(DOCKER_CE_CLI)/build/docker-linux-amd64 $(DOCKER_BUILD)/docker
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/dockerd $(DOCKER_BUILD)/
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/docker-init $(DOCKER_BUILD)/
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/docker-proxy $(DOCKER_BUILD)/
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/docker-runc $(DOCKER_BUILD)/
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/docker-containerd $(DOCKER_BUILD)/
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/docker-containerd-shim $(DOCKER_BUILD)/
-	cp -f $(DOCKER_CE_ENGINE)/bundles/17.06.2-ce/binary-daemon/docker-containerd-ctr $(DOCKER_BUILD)/
+	cp -f $(DOCKER_CE_ENGINE)/bundles/binary-daemon/dockerd-dev $(DOCKER_BUILD)/dockerd-ce
 
 all: installer
 

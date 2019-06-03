@@ -12,7 +12,7 @@ import (
 	"os"
 	"io/ioutil"
 	"path/filepath"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Device represents a loop device /dev/loop#

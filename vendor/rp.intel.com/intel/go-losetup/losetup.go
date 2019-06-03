@@ -12,7 +12,7 @@ import (
 	"bytes"
 	"path/filepath"
 	"golang.org/x/sys/unix"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Add will add a loopback device if it does not exist already.

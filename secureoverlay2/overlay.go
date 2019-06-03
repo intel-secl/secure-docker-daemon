@@ -11,6 +11,7 @@ package secureoverlay2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +27,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
 
 	"github.com/docker/docker/daemon/graphdriver"
@@ -34,6 +35,7 @@ import (
 	"github.com/docker/docker/daemon/graphdriver/quota"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
+	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/directory"
 	"github.com/docker/docker/pkg/fsutils"
 	"github.com/docker/docker/pkg/idtools"
@@ -88,6 +90,10 @@ const (
 	driverName = "secureoverlay2"
 	linkDir    = "l"
 	lowerFile  = "lower"
+	diffDirName   = "diff"
+        workDirName   = "work"
+        mergedDirName = "merged"
+
 	maxDepth   = 128
 
 	// idLength represents the number of random characters
@@ -203,11 +209,10 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 	logrus.Info("secureoverlay2: Init: parsed options: ", opts)
-
+	
 	if err := supportsOverlay(); err != nil {
 		return nil, graphdriver.ErrNotSupported
 	}
-
 	// require kernel 4.0.0 to ensure multiple lower dirs are supported
 	v, err := kernel.GetKernelVersion()
 	if err != nil {
@@ -220,14 +225,23 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		logrus.Warn("Using pre-4.0.0 kernel for overlay2, mount failures may require kernel update")
 	}
 
-	fsMagic, err := graphdriver.GetFSMagic(home)
+        // Perform feature detection on /var/lib/docker/overlay2 if it's an existing directory.
+        // This covers situations where /var/lib/docker/overlay2 is a mount, and on a different
+        // filesystem than /var/lib/docker.
+        // If the path does not exist, fall back to using /var/lib/docker for feature detection.
+        testdir := home
+        if _, err := os.Stat(testdir); os.IsNotExist(err) {
+                testdir = filepath.Dir(testdir)
+        }
+
+	fsMagic, err := graphdriver.GetFSMagic(testdir)
 	if err != nil {
+		logrus.Errorf("secureoverlay2: %s", err.Error())
 		return nil, err
 	}
 	if fsName, ok := graphdriver.FsNames[fsMagic]; ok {
 		backingFs = fsName
 	}
-
 	// check if they are running over btrfs, aufs, zfs, overlay, or ecryptfs
 	switch fsMagic {
 	case graphdriver.FsMagicBtrfs, graphdriver.FsMagicAufs, graphdriver.FsMagicZfs, graphdriver.FsMagicOverlay, graphdriver.FsMagicEcryptfs:
@@ -240,15 +254,14 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 	// Create the driver home dir
-	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAndChown(path.Join(home, linkDir), 0700, idtools.Identity{UID: rootUID, GID: rootGID}); err != nil {
+		return nil, err
+	}
+	if err := mount.MakePrivate(testdir); err != nil {
 		return nil, err
 	}
 
-	if err := mount.MakePrivate(home); err != nil {
-		return nil, err
-	}
-
-	supportsDType, err := fsutils.SupportsDType(home)
+	supportsDType, err := fsutils.SupportsDType(testdir)
 	if err != nil {
 		return nil, err
 	}
@@ -266,16 +279,13 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		locker:        locker.New(),
 		options:       *opts,
 	}
-
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, uidMaps, gidMaps)
-
 	if backingFs == "xfs" {
 		// Try to enable project quota support over xfs.
 		if d.quotaCtl, err = quota.NewControl(home); err == nil {
 			projectQuotaSupported = true
 		}
 	}
-
 	logrus.Debugf("secureoverlay2: Init return, backingFs=%s,  projectQuotaSupported=%v driver-options=%v", backingFs, projectQuotaSupported, d.options)
 
 	return d, nil
@@ -361,7 +371,7 @@ func supportsOverlay() error {
 
 func useNaiveDiff(home string) bool {
 	useNaiveDiffLock.Do(func() {
-		if err := hasOpaqueCopyUpBug(home); err != nil {
+		if err := doesSupportNativeDiff(home); err != nil {
 			logrus.Warnf("Not using native diff for secureoverlay2: %v", err)
 			useNaiveDiffOnly = true
 		}
@@ -483,15 +493,15 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	// create all directories
 	// - standard ones
 	dir := d.dir(id)
-
 	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
 	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
+	root := idtools.Identity{UID: rootUID, GID: rootGID}
+	if err := idtools.MkdirAllAndChown(path.Dir(dir), 0700, root); err != nil {
 		return err
 	}
-	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAndChown(dir, 0700, root); err != nil {
 		return err
 	}
 	// unclear why couldn't just have done MkDirAllAs of dir in one go but that's what overlay2 did, so left it ..
@@ -502,7 +512,6 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			os.RemoveAll(dir)
 		}
 	}()
-
 	if opts != nil && len(opts.StorageOpt) > 0 && projectQuotaSupported {
 		if driver.options.quota.Size > 0 {
 			// Set container disk quota limit
@@ -512,10 +521,9 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}
 
-	if err := idtools.MkdirAs(path.Join(dir, "diff"), 0755, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAndChown(path.Join(dir, "diff"), 0755, root); err != nil {
 		return err
 	}
-
 	lid := generateID(idLength)
 	if err := os.Symlink(path.Join("..", id, "diff"), path.Join(d.home, linkDir, lid)); err != nil {
 		return err
@@ -525,15 +533,15 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	if err := ioutil.WriteFile(path.Join(dir, "link"), []byte(lid), 0644); err != nil {
 		return err
 	}
-
+	// if no parent directory, done
+	
 	if parent != "" {
-
-		if err := idtools.MkdirAs(path.Join(dir, "work"), 0700, rootUID, rootGID); err != nil {
-			return err
-		}
-		if err := idtools.MkdirAs(path.Join(dir, "merged"), 0700, rootUID, rootGID); err != nil {
-			return err
-		}
+		if err := idtools.MkdirAndChown(path.Join(dir, "work"), 0700, root); err != nil {
+                      return err
+        	}
+	        if err := idtools.MkdirAndChown(path.Join(dir, "merged"), 0700, root); err != nil {
+	               return err
+        	}
 
 		lower, err := d.getLower(parent)
 		if err != nil {
@@ -545,22 +553,19 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			}
 		}
 	}
-
 	// create secure dirs
 	secureDir := path.Join(dir, constSecureBaseDirName)
 
-	if err := idtools.MkdirAs(secureDir, 0755, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAndChown(secureDir, 0755, root); err != nil {
 		return err
 	}
-
 	if err := d.createSecureDiffDir(id, ""); err != nil {
 		return err
 	}
 
-	if err := idtools.MkdirAs(path.Join(secureDir, constSecureCryptMntDirName), 0755, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAndChown(path.Join(secureDir, constSecureCryptMntDirName), 0755, root); err != nil {
 		return err
 	}
-
 	// initialize secure storage space
 	if err := d.initSecureStorage(id, *storageOpts); err != nil {
 		logrus.Debugf("secureoverlay2: Create w. id: %s, failed to initalize secure storage %s", id, err.Error())
@@ -1031,7 +1036,7 @@ func (d *Driver) Remove(id string) error {
 }
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
-func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
+func (d *Driver) Get(id string, mountLabel string) (_ containerfs.ContainerFS, err error) {
 	var (
 		dir, diffDir, mergedDir, workDir, mountOptionsFmt string
 		lowers                                            []byte
@@ -1047,8 +1052,9 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 	// various directory variables
 	dir = d.dir(id)
 	if _, err = os.Stat(dir); err != nil {
-		return "", err
+		return nil, err
 	}
+
 	diffDir = path.Join(dir, "diff")
 	mergedDir = path.Join(dir, "merged")
 	workDir = path.Join(dir, "work")
@@ -1067,7 +1073,7 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 	recoveryState := noRS
 	if count := d.ctr.Increment(mergedDir); count > 1 {
 		logrus.Debugf("secureoverlay2: Get w. id: %s, reference count: %d, returning existing mounted dir", id, count)
-		return mergedDir, nil
+		return containerfs.NewLocalContainerFS(mergedDir), nil
 	}
 	defer func() {
 		if err != nil {
@@ -1091,12 +1097,12 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 	//***************** security related per-layer device setup and mounting
 	if err = d.mountLayersFor(id); err != nil {
 		logrus.Errorf("secureoverlay2: Get w. id: %s, failed to mount ecryptfs, error: %s", id, err.Error())
-		return "", err
+		return nil, err
 	}
 	recoveryState = umountLayerRS
 
 	if err = d.mountAllLowers(id); err != nil {
-		return "", err
+		return nil, err
 	}
 	recoveryState = umountAllLowersRS
 
@@ -1106,9 +1112,9 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 		// If no lower, just return diff directory
 		if os.IsNotExist(err) {
 			logrus.Debugf("secureoverlay2: Get returns w. id: %s, dir: %s, no lower", diffDir, id)
-			return diffDir, nil
+			return containerfs.NewLocalContainerFS(diffDir), nil
 		}
-		return "", err
+		return nil, err
 	}
 
 	splitLowers := strings.Split(string(lowers), ":")
@@ -1120,7 +1126,7 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 	// if we are already securityTransformed with security enabled, we can only mount read-only!
 	s, err = d.getSecurityMetaDataForId(id, "")
 	if err != nil {
-		return "", fmt.Errorf("Missing security meta data (err=%v)", err)
+		return nil, fmt.Errorf("Missing security meta data (err=%v)", err)
 	}
 	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality && !s.RequiresIntegrity) {
 		mountOptionsFmt = "upperdir=%s,lowerdir=%s,workdir=%s"
@@ -1158,7 +1164,7 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 		opts = fmt.Sprintf(mountOptionsFmt, path.Join(id, "diff"), string(lowers), path.Join(id, "work"))
 		mountData = label.FormatMountLabel(opts, mountLabel)
 		if len(mountData) > pageSize {
-			return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
+			return nil, fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
 		}
 
 		mount = func(source string, target string, mType string, flags uintptr, label string) error {
@@ -1170,7 +1176,7 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 	logrus.Debugf("secureoverlay2: Get -> overlay mount: mount -t overlay -o %s none %s", mountData, mountTarget)
 
 	if err = mount("overlay", mountTarget, "overlay", 0, mountData); err != nil {
-		return "", fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
+		return nil, fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
 	}
 	recoveryState = umountMergeRS
 
@@ -1180,17 +1186,17 @@ func (d *Driver) Get(id string, mountLabel string) (mntPath string, err error) {
 		var rootUID, rootGID int
 		rootUID, rootGID, err = idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if err = os.Chown(path.Join(workDir, "work"), rootUID, rootGID); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
 	logrus.Debugf("secureoverlay2: Get returns, mergedDir: %s", mergedDir)
 
-	return mergedDir, nil
+	return containerfs.NewLocalContainerFS(mergedDir), nil
 }
 
 // Put unmounts the mount path created for the give id.
@@ -1230,13 +1236,11 @@ func (d *Driver) Put(id string) error {
 			// still continue and try to unmount lower layers ...
 		}
 	}
-
 	//***************** security related per-layer device setup and mounting
 	if err2 := d.umountLayersFor(id); err2 != nil {
 		logrus.Errorf("secureoverlay2: Put w. id: %s, failed to unmount ecryptfs, error: %s", id, err2.Error())
 		// still continue and try to unmount lower layers ...
 	}
-
 	if err3 := d.umountAllLowers(id); err3 != nil {
 		logrus.Errorf("secureoverlay2: Put w. id: %s, failed to unmount all lowers, error: %s", id, err3.Error())
 	}
@@ -1251,7 +1255,6 @@ func (d *Driver) Put(id string) error {
 	case err3 != nil:
 		err = err3
 	}
-
 	logrus.Debugf("secureoverlay2: Put w. id: %s returns with err=%v", id, err)
 	return err
 }
@@ -1349,7 +1352,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		logrus.Errorf("secureoverlay2: ApplyDiff w. id: %s, meta-data exists but is corrupted", id)
 		return -1, err
 	case s.RequiresConfidentiality || s.RequiresIntegrity:
-		size, err := directory.Size(diffCryptPath)
+		size, err := directory.Size(context.TODO(), diffCryptPath)
 		logrus.Debugf("secureoverlay2: ApplyDiff w. id: %s & secured layer, return size: %d, err: %v", id, size, err)
 		return size, err
 
@@ -1374,10 +1377,11 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 
 	// recreate diffCryptPath
 	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
+	root := idtools.Identity{UID: rootUID, GID: rootGID}
 	if err != nil {
 		return -1, err
 	}
-	if err := idtools.MkdirAs(diffCryptPath, 0755, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAndChown(diffCryptPath, 0755, root); err != nil {
 		logrus.Errorf("secureoverlay2: ApplyDiff w. id: %s, error in creating secure directory %s", id, diffCryptPath)
 		return -1, err
 	}
@@ -1389,7 +1393,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		return -1, err
 	}
 
-	size, err = directory.Size(diffPath)
+	size, err = directory.Size(context.TODO(), diffPath)
 	logrus.Debugf("secureoverlay2: ApplyDiff returns w. id: %s & non-secured layer, return size: %d, err: %v", id, size, err)
 	return size, err
 }
@@ -1432,12 +1436,12 @@ func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
 	}
 
 	if s.IsSecurityTransformed && !s.IsEmptyLayer && (s.RequiresConfidentiality || s.RequiresIntegrity) {
-		size, err = directory.Size(d.getSecureDiffPath(id, parent, false))
+		size, err = directory.Size(context.TODO(), d.getSecureDiffPath(id, parent, false))
 	} else {
 		if useNaiveDiff(d.home) || !d.isParent(id, parent) {
 			size, err = d.naiveDiff.DiffSize(id, parent)
 		} else {
-			size, err = directory.Size(d.getDiffPath(id))
+			size, err = directory.Size(context.TODO(), d.getDiffPath(id))
 		}
 	}
 
@@ -1648,7 +1652,7 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 		return nil, err
 	}
 
-	c, cErr := archive.OverlayChanges(layers, diffPath)
+	c, cErr := archive.Changes(layers, diffPath)
 	logrus.Debugf("secureoverlay2: Changes returns w error: %v", cErr)
 	return c, cErr
 }
@@ -1780,6 +1784,7 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 
         //TODO reset timeout after reading the key
         unwrappedKey := string(key)
+	unwrappedKey = string("unwrappedKey")
         unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
         unwrappedKey = strings.TrimSpace(unwrappedKey)
 
@@ -1970,7 +1975,7 @@ func (d Driver) getSecureDiffPath(id, parent string, canBeRemote bool) string {
 
 	localSecureDiffPath := path.Join(d.dir(id), constSecureBaseDirName, diffDirName)
 	remoteSecureDiffPath := path.Join(d.options.remoteDir, id, constSecureBaseDirName, diffDirName)
-
+	logrus.Debugf("secureoverlay2: getSecureDiffPath %s. localSecureDiffPath %s remoteSecureDiffPath", localSecureDiffPath, remoteSecureDiffPath) 
 	diffPath := localSecureDiffPath
 	// remote only "wins" if local does not exist and remote exists
 	if canBeRemote && d.options.remoteDir != "" {
@@ -2004,8 +2009,9 @@ func (d Driver) createSecureDiffDir(id, parent string) error {
 	if err != nil {
 		return err
 	}
+	root := idtools.Identity{UID: rootUID, GID: rootGID}
 
-	return idtools.MkdirAs(localSecureDiffPath, 0755, rootUID, rootGID)
+	return idtools.MkdirAllAndChown(localSecureDiffPath, 0755, root)
 }
 
 //   Get a mount point for crypto-protected filesystems.
