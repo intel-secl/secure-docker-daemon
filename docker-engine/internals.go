@@ -458,21 +458,20 @@ func (b *Builder) create(runConfig *container.Config) (string, error) {
 
 //Added back to support storage opt for secureoverlay2
 func  getSecureStorageOpts(options *types.ImageBuildOptions) (map[string]string) {
-        // add extra args to storage opts
-        storage_opts := make(map[string]string)
-        // parse storage options
+        storageOpts := make(map[string]string)
+	// parse storage options
         for _, val := range options.StorageOpt {
-                if strings.Contains(val, "=") {
-                        opt := strings.SplitN(val, "=", 2)
-                        storage_opts[opt[0]] = opt[1]
-                } else if strings.Contains(val, ":") {
-                        opt := strings.SplitN(val, ":", 2)
-                        storage_opts[opt[0]] = opt[1]
-                } else {
-                        return storage_opts
-                }
-        }
-        return storage_opts
+         if strings.Contains(val, "=") {
+                       opt := strings.SplitN(val, "=", 2)
+                       storageOpts[opt[0]] = opt[1]
+         } else if strings.Contains(val, ":") {
+                 opt := strings.SplitN(val, ":", 2)
+                 storageOpts[opt[0]] = opt[1]
+         } else {
+		logrus.Debugf("[BUILDER] getSecureStorageOpts: ignoring storageOpts argument %s", val)
+	 }
+	}
+	return storageOpts
 }
 
 
@@ -489,7 +488,7 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
 		Ulimits:      options.Ulimits,
 	}
 
-	//Added back StorageOpt to support secureoverlay2	
+	//Added back StorageOpt to support secureoverlay2
 	storageOpt := getSecureStorageOpts(options)
 
 	hc := &container.HostConfig{
@@ -510,7 +509,7 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
 	// using RUN statements to install large amounts of data.
 	// Use 127GB as that's the default size of a VHD in Hyper-V.
 	if isWCOW {
-	//	hc.StorageOpt = make(map[string]string)
+		hc.StorageOpt = make(map[string]string)
 		hc.StorageOpt["size"] = "127GB"
 	}
 
