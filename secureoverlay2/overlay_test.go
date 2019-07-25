@@ -1,11 +1,10 @@
 // +build linux
 
-package secureoverlay2
+package secureoverlay2 // import "github.com/docker/docker/daemon/graphdriver/secureoverlay2"
 
 import (
 	"io/ioutil"
 	"os"
-	"syscall"
 	"testing"
 
 	"github.com/docker/docker/daemon/graphdriver"
@@ -23,17 +22,6 @@ func init() {
 	reexec.Init()
 }
 
-func cdMountFrom(dir, device, target, mType, label string) error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	os.Chdir(dir)
-	defer os.Chdir(wd)
-
-	return syscall.Mount(device, target, mType, 0, label)
-}
-
 func skipIfNaive(t *testing.T) {
 	td, err := ioutil.TempDir("", "naive-check-")
 	if err != nil {
@@ -49,7 +37,7 @@ func skipIfNaive(t *testing.T) {
 // This avoids creating a new driver for each test if all tests are run
 // Make sure to put new tests between TestOverlaySetup and TestOverlayTeardown
 func TestOverlaySetup(t *testing.T) {
-	graphtest.GetDriver(t, driverName) // Note: could provide DriverOptions (list of strings) as optional 3rd arg
+	graphtest.GetDriver(t, driverName)
 }
 
 func TestOverlayCreateEmpty(t *testing.T) {
@@ -70,15 +58,11 @@ func TestOverlay128LayerRead(t *testing.T) {
 
 func TestOverlayDiffApply10Files(t *testing.T) {
 	skipIfNaive(t)
-	t.Skipf("Skipping as for now DiffSize and size returned by AppyDiff do not match")
-	// Skip below for now as our DiffSize and size returned by ApplyDiff are not exactly the same sizes
-	// Note: below BenchamrkDiffN also tests for size
-	//   _but_ does not enforce it, so we don't uncomment them ...
-	//graphtest.DriverTestDiffApply(t, 10, driverName)
+	graphtest.DriverTestDiffApply(t, 10, driverName)
 }
 
 func TestOverlayChanges(t *testing.T) {
-	skipIfNaive(t)
+	t.Skipf("Cannot run test with naive change algorithm")
 	graphtest.DriverTestChanges(t, driverName)
 }
 

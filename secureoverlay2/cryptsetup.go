@@ -1,3 +1,5 @@
+// +build linux
+
 //AUTHOR: Divya Desai <divyax.desai@intel.com>
 
 /*
@@ -279,16 +281,16 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 
 	switch(luksCmd) {
 		case ConstLuksCmdFormat:
-			cmd = fmt.Sprintf("printf %s | cryptsetup -q luksFormat -c %s -h %s -s %s %s -",
+			cmd = fmt.Sprintf("echo -n %s | cryptsetup -v -q luksFormat -c %s -h %s -s %s %s -",
 								key, c, ht, ks, dev)
 		case ConstLuksCmdOpen:
 			if rd {
-				cmd = fmt.Sprintf("printf %s | cryptsetup --readonly --type luks open %s %s", key, dev, nm)
+				cmd = fmt.Sprintf("echo -n %s | cryptsetup -v --readonly --type luks open %s %s", key, dev, nm)
 			} else {
-				cmd = fmt.Sprintf("printf %s | cryptsetup --type luks open %s %s", key, dev, nm)
+				cmd = fmt.Sprintf("echo -n %s | cryptsetup -v --type luks open %s %s", key, dev, nm)
 			}
 		case ConstLuksCmdClose:
-			cmd = fmt.Sprintf("cryptsetup --type luks close %s", nm)
+			cmd = fmt.Sprintf("cryptsetup -v --type luks close %s", nm)
 
 		default:
 			return errors.New(fmt.Sprintf("invalid luks command: %s", luksCmd))
@@ -310,10 +312,10 @@ func getRootHash(out string) string {
 	rootHashLine := ""
 
     for _, ln := range lines {
-    	if strings.Contains(ln, "Root hash") {
-    		rootHashLine = ln
-    		break
-    	}
+	if strings.Contains(ln, "Root hash") {
+		rootHashLine = ln
+		break
+	}
     }
 
     rootHash := strings.Split(rootHashLine, ":")
@@ -462,7 +464,7 @@ func (d *VirtualDevice) Create(size int64) error {
 			return errors.New("Invalid device type")
 	}
 	err := d.Image.Create(sz)
- 	logrus.Debugf("secureoverlay2: VirtualDevice Create returns w. error: %v", err)
+	logrus.Debugf("secureoverlay2: VirtualDevice Create returns w. error: %v", err)
 	return err
 }
 
