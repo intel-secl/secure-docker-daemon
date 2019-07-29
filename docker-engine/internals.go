@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/builder"
 	"github.com/docker/docker/image"
+	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/containerfs"
@@ -77,7 +78,6 @@ func (b *Builder) getArchiver(src, dst containerfs.Driver) Archiver {
 }
 
 func (b *Builder) commit(dispatchState *dispatchState, comment string) error {
-
 	if b.disableCommit {
 		return nil
 	}
@@ -90,6 +90,7 @@ func (b *Builder) commit(dispatchState *dispatchState, comment string) error {
 	if err != nil || id == "" {
 		return err
 	}
+
 	return b.commitContainer(dispatchState, id, runConfigWithCommentCmd)
 }
 
@@ -173,8 +174,10 @@ func (b *Builder) performCopy(req dispatchRequest, inst copyInstruction) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to get destination image %q", state.imageID)
 	}
-
-	rwLayer, err := imageMount.NewRWLayer()
+	rwlOpts := layer.CreateRWLayerOpts{
+		StorageOpt: getSecureStorageOpts(b.options),
+	}
+	rwLayer, err := imageMount.NewRWLayerSecureCopy(&rwlOpts)
 	if err != nil {
 		return err
 	}
@@ -443,7 +446,6 @@ func (b *Builder) create(runConfig *container.Config) (string, error) {
 
 	isWCOW := runtime.GOOS == "windows" && b.platform != nil && b.platform.OS == "windows"
 	hostConfig := hostConfigFromOptions(b.options, isWCOW)
-	logrus.Debugf("[BUILDER] Command to be: %v", b.options)
 	container, err := b.containerManager.Create(runConfig, hostConfig)
 	if err != nil {
 		return "", err
@@ -456,10 +458,11 @@ func (b *Builder) create(runConfig *container.Config) (string, error) {
 	return container.ID, nil
 }
 
+
 //Added back to support storage opt for secureoverlay2
 func  getSecureStorageOpts(options *types.ImageBuildOptions) (map[string]string) {
         storageOpts := make(map[string]string)
-	// parse storage options
+        // parse storage options
         for _, val := range options.StorageOpt {
          if strings.Contains(val, "=") {
                        opt := strings.SplitN(val, "=", 2)
@@ -468,12 +471,11 @@ func  getSecureStorageOpts(options *types.ImageBuildOptions) (map[string]string)
                  opt := strings.SplitN(val, ":", 2)
                  storageOpts[opt[0]] = opt[1]
          } else {
-		logrus.Debugf("[BUILDER] getSecureStorageOpts: ignoring storageOpts argument %s", val)
-	 }
-	}
-	return storageOpts
+                logrus.Debugf("[BUILDER] getSecureStorageOpts: ignoring storageOpts argument %s", val)
+         }
+        }
+        return storageOpts
 }
-
 
 func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *container.HostConfig {
 	resources := container.Resources{
@@ -487,10 +489,8 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
 		MemorySwap:   options.MemorySwap,
 		Ulimits:      options.Ulimits,
 	}
-
-	//Added back StorageOpt to support secureoverlay2
+	//Added back StorageOpt to support secureoverlay2	
 	storageOpt := getSecureStorageOpts(options)
-
 	hc := &container.HostConfig{
 		SecurityOpt: options.SecurityOpt,
 		Isolation:   options.Isolation,

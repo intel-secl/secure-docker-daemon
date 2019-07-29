@@ -42,8 +42,11 @@ cp -f $GRAPHDRIVER/register_secureoverlay2.go $DOCKER_CE_ENGINE/daemon/graphdriv
 cp -f $GRAPHDRIVER/driver_linux.go $DOCKER_CE_ENGINE/daemon/graphdriver/driver_linux.go
 cp -f $DOCKER_ENGINE/Dockerfile $DOCKER_CE_ENGINE/Dockerfile
 cp -f $DOCKER_ENGINE/internals.go $DOCKER_CE_ENGINE/builder/dockerfile/internals.go
+cp -f $DOCKER_ENGINE/imagecontext.go $DOCKER_CE_ENGINE/builder/dockerfile/imagecontext.go
+cp -f $DOCKER_ENGINE/builder.go $DOCKER_CE_ENGINE/builder/builder.go
 cp -f $DOCKER_ENGINE/build_routes.go $DOCKER_CE_ENGINE/api/server/router/build/build_routes.go
 cp -f $DOCKER_ENGINE/client.go $DOCKER_CE_ENGINE/api/types/client.go
+cp -f $DOCKER_ENGINE/image_builder.go $DOCKER_CE_ENGINE/daemon/images/image_builder.go
 cp -rf $SECURE_OVERLAY_DIR $DOCKER_CE_ENGINE/daemon/graphdriver/
 cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
 

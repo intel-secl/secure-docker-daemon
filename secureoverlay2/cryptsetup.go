@@ -33,7 +33,7 @@ const (
 	ConstDevMapperPrefix		= "/dev/mapper"
 	ConstMinImageSize		= 10 * 1024 * 1024 // 10 MB
 	ConstCryptsetupOverhead		= 2 * 1024 * 1024 // 4 MB
-	ConstFsOverhead			= 20 // (in %) 5%
+	ConstFsOverhead			= 50 // (in %) 5%
 
 	ConstLuksCmdFormat		= "luks-format"
 	ConstLuksCmdOpen		= "luks-open"
