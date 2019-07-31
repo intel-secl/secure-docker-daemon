@@ -66,7 +66,7 @@ type buildOptions struct {
 	cacheFrom      []string
 	compress       bool
 	securityOpt    []string
-	storageOpt     []string
+	imgCryptOpt	[]string
 	networkMode    string
 	squash         bool
 	target         string
@@ -143,7 +143,7 @@ func NewBuildCommand(dockerCli command.Cli) *cobra.Command {
 	flags.SetAnnotation("compress", "no-buildkit", nil)
 
 	flags.StringSliceVar(&options.securityOpt, "security-opt", []string{}, "Security options")
-	flags.StringSliceVar(&options.storageOpt, "storage-opt", []string{}, "Storage options")
+	flags.StringSliceVar(&options.imgCryptOpt, "imgcrypt-opt", []string{}, "Image Encryption options for SecureOverlay storage driver")
 	flags.StringVar(&options.networkMode, "network", "default", "Set the networking mode for the RUN instructions during build")
 	flags.SetAnnotation("network", "version", []string{"1.25"})
 	flags.Var(&options.extraHosts, "add-host", "Add a custom host-to-IP mapping (host:ip)")
@@ -649,8 +649,8 @@ func imageBuildOptions(dockerCli command.Cli, options buildOptions) types.ImageB
 		Labels:         opts.ConvertKVStringsToMap(options.labels.GetAll()),
 		CacheFrom:      options.cacheFrom,
 		SecurityOpt:    options.securityOpt,
-		//Added back StorageOpt to support secureoverlay2
-		StorageOpt:     options.storageOpt,
+		//Added ImgCryptOpt to support secureoverlay2
+		ImgCryptOpt:    options.imgCryptOpt,
 		NetworkMode:    options.networkMode,
 		Squash:         options.squash,
 		ExtraHosts:     options.extraHosts.GetAll(),

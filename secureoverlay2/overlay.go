@@ -149,7 +149,7 @@ const (
 //	RootHash: root hash of the integrity hash device
 //	IsDiffed: true if layer was successfully securityTransformed
 
-type secureStorageOptions struct {
+type secureImgCryptOptions struct {
 	RequiresConfidentiality bool   `json:"RequiresConfidentiality"`
 	RequiresIntegrity       bool   `json:"RequiresIntegrity"`
 	KeyHandle               string `json:"KeyHandle,omitempty"`
@@ -170,7 +170,7 @@ type overlayOptions struct {
 	overrideKernelCheck bool
 	remoteDir           string
 	quota               quota.Quota
-	defaultSecOpts      secureStorageOptions
+	defaultSecOpts      secureImgCryptOptions
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -482,13 +482,13 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 // The parent filesystem is used to configure these directories for the overlay.
 func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
 	logrus.Debugf("secureoverlay2: Create called w. id: %s, parent: %s, opts: %s", id, parent, opts)
-	storageOpts := &secureStorageOptions{}
-	storageOpts.init(d.options.defaultSecOpts)
+	imgCryptOpts := &secureImgCryptOptions{}
+	imgCryptOpts.init(d.options.defaultSecOpts)
 	driver := &Driver{}
 	err := errors.New("")
 
-	if opts != nil && len(opts.StorageOpt) != 0 {
-		err = d.parseStorageOpt(opts.StorageOpt, storageOpts, driver)
+	if opts != nil && len(opts.ImgCryptOpt) != 0 {
+		err = d.parseImgCryptOpt(opts.ImgCryptOpt, imgCryptOpts, driver)
 		if err != nil {
 			return fmt.Errorf("--storage-opt parsing error: %s", err.Error())
 		}
@@ -516,7 +516,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			os.RemoveAll(dir)
 		}
 	}()
-	if opts != nil && len(opts.StorageOpt) > 0 && projectQuotaSupported {
+	if opts != nil && len(opts.ImgCryptOpt) > 0 && projectQuotaSupported {
 		if driver.options.quota.Size > 0 {
 			// Set container disk quota limit
 			if err := d.quotaCtl.SetQuota(dir, driver.options.quota); err != nil {
@@ -571,7 +571,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 	// initialize secure storage space
-	if err := d.initSecureStorage(id, *storageOpts); err != nil {
+	if err := d.initSecureStorage(id, *imgCryptOpts); err != nil {
 		logrus.Debugf("secureoverlay2: Create w. id: %s, failed to initalize secure storage %s", id, err.Error())
 		return err
 	}
@@ -581,7 +581,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	return nil
 }
 
-func (d *Driver) initSecureStorage(id string, opts secureStorageOptions) error {
+func (d *Driver) initSecureStorage(id string, opts secureImgCryptOptions) error {
 	logrus.Debugf("secureoverlay2: initSecureStorage called w. id: %s, opts: %v", id, opts)
 	// -init layers are ephemeral for parameter passing, ..
 	if strings.HasSuffix(id, "-init") {
@@ -595,10 +595,10 @@ func (d *Driver) initSecureStorage(id string, opts secureStorageOptions) error {
 }
 
 // Parse overlay storage options
-func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStorageOptions, driver *Driver) error {
-	logrus.Debugf("secureoverlay2: parseStorageOpt called w. storageOpt: %s", storageOpt)
+func (d *Driver) parseImgCryptOpt(imgCryptOpt map[string]string, opts *secureImgCryptOptions, driver *Driver) error {
+	logrus.Debugf("secureoverlay2: parseImgCryptOpt called w. imgCryptOpt: %s", imgCryptOpt)
 	// Read size to set the disk project quota per container
-	for key, val := range storageOpt {
+	for key, val := range imgCryptOpt {
 		lcKey := strings.ToLower(key)
 		switch lcKey {
 		case "size":
@@ -646,7 +646,7 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStora
 		}
 	}
 
-	logrus.Debugf("secureoverlay2: parseStorageOpt returns secureStorageOptions: %s", opts)
+	logrus.Debugf("secureoverlay2: parseImgCryptOpt returns secureImgCryptOptions: %s", opts)
 
 	return nil
 }
@@ -826,7 +826,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	}()
 
 	// check for security meta-data
-	var s secureStorageOptions
+	var s secureImgCryptOptions
 	s, err = d.getSecurityMetaDataForId(id, "")
 	switch {
 	case err == nil:
@@ -947,7 +947,7 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 	}
 
 	// check for security meta-data
-	var s secureStorageOptions
+	var s secureImgCryptOptions
 	s, err = d.getSecurityMetaDataForId(id, "")
 	switch {
 	case err == nil:
@@ -1047,7 +1047,7 @@ func (d *Driver) Get(id string, mountLabel string) (_ containerfs.ContainerFS, e
 	var (
 		dir, diffDir, mergedDir, workDir, mountOptionsFmt string
 		lowers                                            []byte
-		s                                                 secureStorageOptions
+		s                                                 secureImgCryptOptions
 	)
 
 	logrus.Debugf("secureoverlay2: Get called w. id: %s, mountLabel: %s", id, mountLabel)
@@ -1349,7 +1349,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		// sense but this is handled elsewhere
 		logrus.Debugf("secureoverlay2: ApplyDiff w. id: %s, No meta-data file found. Assuming it is a legacy layer", id)
 		// create an apprirate security metadata file (or below move back will fail)
-		s = secureStorageOptions{}
+		s = secureImgCryptOptions{}
 		s.init(constNoSecurityOption)
 		if err := d.putSecurityMetaDataForId(id, "", s); err != nil {
 			logrus.Errorf("secureoverlay2: ApplyDiff w. id: %s, error in updating device status for legacy layer, error: %s", id, err.Error())
@@ -1435,7 +1435,7 @@ func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
 		// The case (a) will be handled properly but for now we treat
 		// case (b) as it would have also no security and do underreport size
 		// TODO: do on-demand securityTransform (as in Diff()) for case (b)
-		s = secureStorageOptions{}
+		s = secureImgCryptOptions{}
 		s.init(constNoSecurityOption)
 		// do _not_ persist for now but might have to reconsider this?
 	default:
@@ -1672,20 +1672,20 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 //   - parent is optional and can be "", in which case the immediate parent, if existing is taken.
 //   - Note that for non-secured layers (either legacy or explicitly no security) this might not find meta data
 //     check with os.IsNotExist(err) to (potentially legitimate) absence of meta-data (vs a retrieval/decoding problem)
-func (d *Driver) getSecurityMetaDataForId(id, parent string) (secureStorageOptions, error) {
+func (d *Driver) getSecurityMetaDataForId(id, parent string) (secureImgCryptOptions, error) {
 	logrus.Debugf("secureoverlay2: getSecurityMetaDataForId called w. id: %s, parent: %s", id, parent)
 
 	dir := d.getSecureDiffPath(id, parent, false)
 	meta_file := path.Join(dir, constMetaDataFileName)
 
-	s := secureStorageOptions{}
+	s := secureImgCryptOptions{}
 	err := s.load(meta_file)
 	logrus.Debugf("secureoverlay2: getSecurityMetaDataForId returns with security opts %s (err=%v)", s, err)
 	return s, err
 }
 
 //    Store security related meta-data from image id
-func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureStorageOptions) error {
+func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureImgCryptOptions) error {
 	logrus.Debugf("secureoverlay2: putSecurityMetaDataForID called w. id: %s, parent: %s, data %s", id, parent, s)
 
 	dir := d.getSecureDiffPath(id, parent, false)
@@ -1698,7 +1698,7 @@ func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureStorageOpti
 
 //
 var ( // really should be a const but golang doesn't support const structs ...
-	constNoSecurityOption = secureStorageOptions{
+	constNoSecurityOption = secureImgCryptOptions{
 		RequiresConfidentiality: false,
 		RequiresIntegrity:       false,
 		KeyHandle:               "",
@@ -1716,25 +1716,25 @@ var ( // really should be a const but golang doesn't support const structs ...
 
 // - utility functions
 
-func (s *secureStorageOptions) init(defaults secureStorageOptions) {
+func (s *secureImgCryptOptions) init(defaults secureImgCryptOptions) {
 	*s = defaults
 }
 
-func (s secureStorageOptions) Encode() ([]byte, error) {
+func (s secureImgCryptOptions) Encode() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (s *secureStorageOptions) Decode(bytes []byte) error {
+func (s *secureImgCryptOptions) Decode(bytes []byte) error {
 	s.init(constNoSecurityOption)
 	return json.Unmarshal(bytes, &s)
 }
 
-func (s secureStorageOptions) String() string {
+func (s secureImgCryptOptions) String() string {
 	bytes, _ := s.Encode()
 	return string(bytes)
 }
 
-func (s *secureStorageOptions) load(metaDataFile string) error {
+func (s *secureImgCryptOptions) load(metaDataFile string) error {
 	bytes, err := ioutil.ReadFile(metaDataFile)
 	if err != nil {
 		// no error as file might not exist for legitimate reasons
@@ -1750,7 +1750,7 @@ func (s *secureStorageOptions) load(metaDataFile string) error {
 	return nil
 }
 
-func (s secureStorageOptions) save(metaDataFile string) error {
+func (s secureImgCryptOptions) save(metaDataFile string) error {
 	bytes, err := s.Encode()
 	if err != nil {
 		logrus.Errorf("secureoverlay2: save, failed to encode meta-data, error: %s", err.Error())
@@ -1854,7 +1854,7 @@ WaitForKey:
 
 // perform any security transforms as specified by security options
 // this assumes either or both of confidentiality or integrity is required!
-func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, clearDiffTar io.ReadCloser, clearDiffSize int64) error {
+func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, clearDiffTar io.ReadCloser, clearDiffSize int64) error {
 	logrus.Debugf("secureoverlay2: securityTransform called w. id: %s/parent: %s, secopts: %v, clearDiffSize: %d", id, parent, s, clearDiffSize)
 	var (
 		key         string

@@ -25,9 +25,11 @@ echo "Building docker client"
 DOCKER_CE_CLI=docker-ce/components/cli
 DOCKER_CE_ENGINE=docker-ce/components/engine
 
-cp -f $DOCKER_CLI/build.go $DOCKER_CE_CLI/cli/command/image/ 
-cp -f $DOCKER_CLI/client.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/api/types/
-cp -f $DOCKER_CLI/image_build.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/client/
+cp -f $DOCKER_CLI/build.go $DOCKER_CE_CLI/cli/command/image/build.go
+cp -f $DOCKER_CLI/client.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/api/types/client.go
+cp -f $DOCKER_CLI/types.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/api/types/types.go
+cp -f $DOCKER_CLI/host_config.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/api/types/container/host_config.go
+cp -f $DOCKER_CLI/image_build.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/client/image_build.go
 cp -f $DOCKER_CLI/Dockerfile.binary-native $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
 
 make --directory=$DOCKER_CE_CLI -f docker.Makefile binary
@@ -40,14 +42,24 @@ fi
 
 cp -f $GRAPHDRIVER/register_secureoverlay2.go $DOCKER_CE_ENGINE/daemon/graphdriver/register/register_secureoverlay2.go
 cp -f $GRAPHDRIVER/driver_linux.go $DOCKER_CE_ENGINE/daemon/graphdriver/driver_linux.go
+cp -f $GRAPHDRIVER/driver.go $DOCKER_CE_ENGINE/daemon/graphdriver/driver.go
+
 cp -f $DOCKER_ENGINE/Dockerfile $DOCKER_CE_ENGINE/Dockerfile
 cp -f $DOCKER_ENGINE/internals.go $DOCKER_CE_ENGINE/builder/dockerfile/internals.go
+cp -f $DOCKER_ENGINE/host_config.go $DOCKER_CE_ENGINE/api/types/container/host_config.go
 cp -f $DOCKER_ENGINE/imagecontext.go $DOCKER_CE_ENGINE/builder/dockerfile/imagecontext.go
 cp -f $DOCKER_ENGINE/builder.go $DOCKER_CE_ENGINE/builder/builder.go
 cp -f $DOCKER_ENGINE/build_routes.go $DOCKER_CE_ENGINE/api/server/router/build/build_routes.go
 cp -f $DOCKER_ENGINE/client.go $DOCKER_CE_ENGINE/api/types/client.go
 cp -f $DOCKER_ENGINE/image_builder.go $DOCKER_CE_ENGINE/daemon/images/image_builder.go
+cp -f $DOCKER_ENGINE/create.go	$DOCKER_CE_ENGINE/daemon/create.go
+cp -f $DOCKER_ENGINE/service.go	$DOCKER_CE_ENGINE/daemon/images/service.go
+cp -f $DOCKER_ENGINE/layer.go $DOCKER_CE_ENGINE/layer/layer.go
+cp -f $DOCKER_ENGINE/layer_store.go  $DOCKER_CE_ENGINE/layer/layer_store.go
+cp -f $DOCKER_ENGINE/mockbackend_test.go $DOCKER_CE_ENGINE/builder/dockerfile/mockbackend_test.go
+
 cp -rf $SECURE_OVERLAY_DIR $DOCKER_CE_ENGINE/daemon/graphdriver/
+
 cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
 
 echo "Building docker daemon.."

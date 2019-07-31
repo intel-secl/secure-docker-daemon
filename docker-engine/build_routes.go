@@ -132,17 +132,15 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
 		options.Labels = labels
 	}
 
-	//Added back StorageOpt to support secureoverlay2
-	storageOpt := r.FormValue("storageopt")
-	if storageOpt != "" {
-                  var storageopt = []string{}
-                  if err := json.Unmarshal([]byte(storageOpt), &storageopt); err != nil {
-                         return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading storageopt")
+	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
+	imgCryptOpt := r.FormValue("imgcryptopt")
+	if imgCryptOpt != "" {
+                  var imgcryptopt = []string{}
+                  if err := json.Unmarshal([]byte(imgCryptOpt), &imgcryptopt); err != nil {
+                         return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading img crypt opts")
                  }
-               options.StorageOpt = storageopt
+               options.ImgCryptOpt = imgcryptopt
         }
-
-	
 	cacheFromJSON := r.FormValue("cachefrom")
 	if cacheFromJSON != "" {
 		var cacheFrom = []string{}

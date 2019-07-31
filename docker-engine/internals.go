@@ -174,8 +174,9 @@ func (b *Builder) performCopy(req dispatchRequest, inst copyInstruction) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to get destination image %q", state.imageID)
 	}
+
 	rwlOpts := layer.CreateRWLayerOpts{
-		StorageOpt: getSecureStorageOpts(b.options),
+		ImgCryptOpt: getImgCryptOpts(b.options),
 	}
 	rwLayer, err := imageMount.NewRWLayerSecureCopy(&rwlOpts)
 	if err != nil {
@@ -460,21 +461,21 @@ func (b *Builder) create(runConfig *container.Config) (string, error) {
 
 
 //Added back to support storage opt for secureoverlay2
-func  getSecureStorageOpts(options *types.ImageBuildOptions) (map[string]string) {
-        storageOpts := make(map[string]string)
+func  getImgCryptOpts(options *types.ImageBuildOptions) (map[string]string) {
+       imgCryptOpts := make(map[string]string)
         // parse storage options
-        for _, val := range options.StorageOpt {
+        for _, val := range options.ImgCryptOpt {
          if strings.Contains(val, "=") {
                        opt := strings.SplitN(val, "=", 2)
-                       storageOpts[opt[0]] = opt[1]
+                       imgCryptOpts[opt[0]] = opt[1]
          } else if strings.Contains(val, ":") {
                  opt := strings.SplitN(val, ":", 2)
-                 storageOpts[opt[0]] = opt[1]
+                 imgCryptOpts[opt[0]] = opt[1]
          } else {
-                logrus.Debugf("[BUILDER] getSecureStorageOpts: ignoring storageOpts argument %s", val)
+                logrus.Debugf("[BUILDER] getImgCryptOpts: ignoring imgCryptOpts argument %s", val)
          }
         }
-        return storageOpts
+        return imgCryptOpts
 }
 
 func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *container.HostConfig {
@@ -489,8 +490,9 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
 		MemorySwap:   options.MemorySwap,
 		Ulimits:      options.Ulimits,
 	}
-	//Added back StorageOpt to support secureoverlay2	
-	storageOpt := getSecureStorageOpts(options)
+
+	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
+	imgCryptOpt := getImgCryptOpts(options)
 	hc := &container.HostConfig{
 		SecurityOpt: options.SecurityOpt,
 		Isolation:   options.Isolation,
@@ -500,8 +502,7 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
 		// Set a log config to override any default value set on the daemon
 		LogConfig:  defaultLogConfig,
 		ExtraHosts: options.ExtraHosts,
-		//Added back StorageOpt in HostConfig to support secureoverlay
-		StorageOpt: storageOpt,
+		ImgCryptOpt: imgCryptOpt,
 	}
 
 	// For WCOW, the default of 20GB hard-coded in the platform

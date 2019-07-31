@@ -177,8 +177,8 @@ type ImageBuildOptions struct {
 	// specified here do not need to have a valid parent chain to match cache.
 	CacheFrom   []string
 	SecurityOpt []string
-	//Added back StorageOpt to support secureoverlay2
-	StorageOpt  []string
+	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
+	ImgCryptOpt  []string
 	ExtraHosts  []string // List of extra hosts
 	Target      string
 	SessionID   string
