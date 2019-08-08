@@ -27,19 +27,6 @@ index ef50a29..edb54ffb 100644
  		NetworkMode:    options.networkMode,
  		Squash:         options.squash,
  		ExtraHosts:     options.extraHosts.GetAll(),
-diff --git a/components/cli/dockerfiles/Dockerfile.binary-native b/components/cli/dockerfiles/Dockerfile.binary-native
-index bc60974..590c931 100644
---- a/components/cli/dockerfiles/Dockerfile.binary-native
-+++ b/components/cli/dockerfiles/Dockerfile.binary-native
-@@ -1,5 +1,8 @@
- FROM    golang:1.12.5-alpine
- 
-+ENV http_proxy "http://10.1.192.48:911"
-+ENV https_proxy "http://10.1.192.48:911"
-+
- RUN     apk add -U git bash coreutils gcc musl-dev
- 
- ENV     CGO_ENABLED=0 \
 diff --git a/components/cli/vendor/github.com/docker/docker/api/types/client.go b/components/cli/vendor/github.com/docker/docker/api/types/client.go
 index 4b9f502..9b5da4a 100644
 --- a/components/cli/vendor/github.com/docker/docker/api/types/client.go
@@ -83,22 +70,6 @@ index 8fcf995..42cf028 100644
  	cacheFromJSON, err := json.Marshal(options.CacheFrom)
  	if err != nil {
  		return query, err
-diff --git a/components/engine/Dockerfile b/components/engine/Dockerfile
-index d563fab..1e365bf 100644
---- a/components/engine/Dockerfile
-+++ b/components/engine/Dockerfile
-@@ -27,6 +27,11 @@
- ARG CROSS="false"
- 
- FROM golang:1.12.5 AS base
-+
-+ENV http_proxy "http://10.1.192.48:911"
-+ENV https_proxy "http://10.1.192.48:911"
-+
-+
- # allow replacing httpredir or deb mirror
- ARG APT_MIRROR=deb.debian.org
- RUN sed -ri "s/(httpredir|deb).debian.org/$APT_MIRROR/g" /etc/apt/sources.list
 diff --git a/components/engine/api/server/router/build/build_routes.go b/components/engine/api/server/router/build/build_routes.go
 index 57d9fc8..1146c68 100644
 --- a/components/engine/api/server/router/build/build_routes.go
@@ -108,7 +79,7 @@ index 57d9fc8..1146c68 100644
  		options.Platform = r.FormValue("platform")
  	}
 -
-+	
++
  	if r.Form.Get("shmsize") != "" {
  		shmSize, err := strconv.ParseInt(r.Form.Get("shmsize"), 10, 64)
  		if err != nil {

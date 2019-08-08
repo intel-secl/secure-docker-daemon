@@ -8,7 +8,7 @@ DOCKER_BUILD := out
 
 .PHONY: all clean
 
-installer:
+installer: clean
 	mkdir -p out
 	chmod +x build-secure-docker-dameon.sh
 	./build-secure-docker-dameon.sh
