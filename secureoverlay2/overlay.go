@@ -1,3 +1,5 @@
+// +build linux
+
 //AUTHOR: Divya Desai <divyax.desai@intel.com>
 
 /*
@@ -5,9 +7,7 @@ Copyright © 2018 Intel Corporation
 SPDX-License-Identifier: BSD-3-Clause
 */
 
-// +build linux
-
-package secureoverlay2
+package secureoverlay2 // import "github.com/docker/docker/daemon/graphdriver/secureoverlay2"
 
 import (
 	"bufio"
@@ -52,11 +52,10 @@ var (
 	untar = chrootarchive.UntarUncompressed
 )
 
-
 //the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
 //if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
 const (
-	MAXKEYPOLL  = 90
+	MAXKEYPOLL = 90
 )
 
 // This backend uses the overlay union filesystem for containers
@@ -87,14 +86,14 @@ const (
 // that mounts do not fail due to length.
 
 const (
-	driverName = "secureoverlay2"
-	linkDir    = "l"
-	lowerFile  = "lower"
+	driverName    = "secureoverlay2"
+	linkDir       = "l"
+	lowerFile     = "lower"
 	diffDirName   = "diff"
-        workDirName   = "work"
-        mergedDirName = "merged"
+	workDirName   = "work"
+	mergedDirName = "merged"
 
-	maxDepth   = 128
+	maxDepth = 128
 
 	// idLength represents the number of random characters
 	// which can be used to create the unique link identifer
@@ -104,6 +103,11 @@ const (
 	// is true (512 is a buffer for label metadata).
 	// ((idLength + len(linkDir) + 1) * maxDepth) <= (pageSize - 512)
 	idLength = 26
+
+	// ConstDefaultStringKeyLength represents the number of random characters
+	// which can be used to set a default string key if the KeyType is
+	// set to key-type-string and no value is passed for KeyHandle
+	ConstDefaultStringKeyLength = 12
 
 	// security transform related options
 	ConstDefaultHashType = "sha256"
@@ -136,7 +140,7 @@ const (
 //       - KeyType = constKeyTypeKeyrings:	no option
 //       - KeyType = constKeyTypeAPI:		url-prefix (actual URL will be url-prefix||key-handle
 //       - KeyType = constKeyTypeString:	key/secret to encrypt
-//	-  KeyType = constKeyTypeKMS 		key/secret to encrypt/decrypt 
+//	-  KeyType = constKeyTypeKMS 		key/secret to encrypt/decrypt
 //	KeyDesc: free text description, can be used securely embed additional information into image (visible via
 //	  'docker history' or metadata extract from registry) to give context to keyhandle
 //	KeySize: size of the key to be used for encryption (in bits)
@@ -145,7 +149,7 @@ const (
 //	RootHash: root hash of the integrity hash device
 //	IsDiffed: true if layer was successfully securityTransformed
 
-type secureStorageOptions struct {
+type secureImgCryptOptions struct {
 	RequiresConfidentiality bool   `json:"RequiresConfidentiality"`
 	RequiresIntegrity       bool   `json:"RequiresIntegrity"`
 	KeyHandle               string `json:"KeyHandle,omitempty"`
@@ -156,7 +160,7 @@ type secureStorageOptions struct {
 	CryptCipher             string `json:"CryptCipher,omitempty"`
 	CryptHashType           string `json:"CryptHashType,omitempty"`
 	RootHash                string `json:"RootHash,omitempty"`
-        KeyFilePath             string `json:"KeyFilePath,omitempty"`
+	KeyFilePath             string `json:"KeyFilePath,omitempty"`
 	IsEmptyLayer            bool   `json:"IsEmptyLayer"`
 	IsSecurityTransformed   bool   `json:"IsSecurityTransformed"`
 }
@@ -166,7 +170,7 @@ type overlayOptions struct {
 	overrideKernelCheck bool
 	remoteDir           string
 	quota               quota.Quota
-	defaultSecOpts      secureStorageOptions
+	defaultSecOpts      secureImgCryptOptions
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -196,7 +200,7 @@ func init() {
 	logrus.Debug("secureoverlay2: init called")
 	graphdriver.Register(driverName, Init)
 	logrus.Debugf("secureoverlay2: driver registered")
-        encryptContainerImage = false
+	encryptContainerImage = false
 }
 
 // Init returns the a native diff driver for overlay filesystem.
@@ -209,7 +213,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 	logrus.Info("secureoverlay2: Init: parsed options: ", opts)
-	
+
 	if err := supportsOverlay(); err != nil {
 		return nil, graphdriver.ErrNotSupported
 	}
@@ -225,14 +229,14 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		logrus.Warn("Using pre-4.0.0 kernel for overlay2, mount failures may require kernel update")
 	}
 
-        // Perform feature detection on /var/lib/docker/overlay2 if it's an existing directory.
-        // This covers situations where /var/lib/docker/overlay2 is a mount, and on a different
-        // filesystem than /var/lib/docker.
-        // If the path does not exist, fall back to using /var/lib/docker for feature detection.
-        testdir := home
-        if _, err := os.Stat(testdir); os.IsNotExist(err) {
-                testdir = filepath.Dir(testdir)
-        }
+	// Perform feature detection on /var/lib/docker/overlay2 if it's an existing directory.
+	// This covers situations where /var/lib/docker/overlay2 is a mount, and on a different
+	// filesystem than /var/lib/docker.
+	// If the path does not exist, fall back to using /var/lib/docker for feature detection.
+	testdir := home
+	if _, err := os.Stat(testdir); os.IsNotExist(err) {
+		testdir = filepath.Dir(testdir)
+	}
 
 	fsMagic, err := graphdriver.GetFSMagic(testdir)
 	if err != nil {
@@ -435,7 +439,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 				s.KeyTypeOption = ""
 				s.KeyDesc = ""
 				s.KeySize = ""
-                                s.KeyFilePath = ""
+				s.KeyFilePath = ""
 				s.CryptCipher = ""
 			}
 			if !s.RequiresIntegrity {
@@ -478,13 +482,13 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 // The parent filesystem is used to configure these directories for the overlay.
 func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
 	logrus.Debugf("secureoverlay2: Create called w. id: %s, parent: %s, opts: %s", id, parent, opts)
-	storageOpts := &secureStorageOptions{}
-	storageOpts.init(d.options.defaultSecOpts)
+	imgCryptOpts := &secureImgCryptOptions{}
+	imgCryptOpts.init(d.options.defaultSecOpts)
 	driver := &Driver{}
 	err := errors.New("")
 
-	if opts != nil && len(opts.StorageOpt) != 0 {
-		err = d.parseStorageOpt(opts.StorageOpt, storageOpts, driver)
+	if opts != nil && len(opts.ImgCryptOpt) != 0 {
+		err = d.parseImgCryptOpt(opts.ImgCryptOpt, imgCryptOpts, driver)
 		if err != nil {
 			return fmt.Errorf("--storage-opt parsing error: %s", err.Error())
 		}
@@ -512,7 +516,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			os.RemoveAll(dir)
 		}
 	}()
-	if opts != nil && len(opts.StorageOpt) > 0 && projectQuotaSupported {
+	if opts != nil && len(opts.ImgCryptOpt) > 0 && projectQuotaSupported {
 		if driver.options.quota.Size > 0 {
 			// Set container disk quota limit
 			if err := d.quotaCtl.SetQuota(dir, driver.options.quota); err != nil {
@@ -534,14 +538,14 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 	// if no parent directory, done
-	
+
 	if parent != "" {
 		if err := idtools.MkdirAndChown(path.Join(dir, "work"), 0700, root); err != nil {
-                      return err
-        	}
-	        if err := idtools.MkdirAndChown(path.Join(dir, "merged"), 0700, root); err != nil {
-	               return err
-        	}
+			return err
+		}
+		if err := idtools.MkdirAndChown(path.Join(dir, "merged"), 0700, root); err != nil {
+			return err
+		}
 
 		lower, err := d.getLower(parent)
 		if err != nil {
@@ -567,7 +571,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 	// initialize secure storage space
-	if err := d.initSecureStorage(id, *storageOpts); err != nil {
+	if err := d.initSecureStorage(id, *imgCryptOpts); err != nil {
 		logrus.Debugf("secureoverlay2: Create w. id: %s, failed to initalize secure storage %s", id, err.Error())
 		return err
 	}
@@ -577,7 +581,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	return nil
 }
 
-func (d *Driver) initSecureStorage(id string, opts secureStorageOptions) error {
+func (d *Driver) initSecureStorage(id string, opts secureImgCryptOptions) error {
 	logrus.Debugf("secureoverlay2: initSecureStorage called w. id: %s, opts: %v", id, opts)
 	// -init layers are ephemeral for parameter passing, ..
 	if strings.HasSuffix(id, "-init") {
@@ -591,10 +595,10 @@ func (d *Driver) initSecureStorage(id string, opts secureStorageOptions) error {
 }
 
 // Parse overlay storage options
-func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStorageOptions, driver *Driver) error {
-	logrus.Debugf("secureoverlay2: parseStorageOpt called w. storageOpt: %s", storageOpt)
+func (d *Driver) parseImgCryptOpt(imgCryptOpt map[string]string, opts *secureImgCryptOptions, driver *Driver) error {
+	logrus.Debugf("secureoverlay2: parseImgCryptOpt called w. imgCryptOpt: %s", imgCryptOpt)
 	// Read size to set the disk project quota per container
-	for key, val := range storageOpt {
+	for key, val := range imgCryptOpt {
 		lcKey := strings.ToLower(key)
 		switch lcKey {
 		case "size":
@@ -631,8 +635,8 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStora
 			opts.KeyDesc = val
 		case "keysize":
 			opts.KeySize = val
-                case "keyfilepath":
-                        opts.KeyFilePath = val
+		case "keyfilepath":
+			opts.KeyFilePath = val
 		case "cryptcipher":
 			opts.CryptCipher = val
 		case "crypthashtype":
@@ -642,7 +646,7 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, opts *secureStora
 		}
 	}
 
-	logrus.Debugf("secureoverlay2: parseStorageOpt returns secureStorageOptions: %s", opts)
+	logrus.Debugf("secureoverlay2: parseImgCryptOpt returns secureImgCryptOptions: %s", opts)
 
 	return nil
 }
@@ -822,7 +826,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	}()
 
 	// check for security meta-data
-	var s secureStorageOptions
+	var s secureImgCryptOptions
 	s, err = d.getSecurityMetaDataForId(id, "")
 	switch {
 	case err == nil:
@@ -856,12 +860,15 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	}
 
 	key := ""
-	if s.RequiresConfidentiality {
-                key, _, err = getKey(s.KeyFilePath, s.KeyHandle)
+	if s.RequiresConfidentiality && s.KeyType == constKeyTypeKMS {
+		key, _, err = getKey(s.KeyFilePath, s.KeyHandle)
 		if err != nil {
-			logrus.Debugf("secureoverlay2: mountLayersFor key %s, err %v", key,err)
+			logrus.Debugf("secureoverlay2: mountLayersFor key %s retrieved from WLA, err %v", key, err)
 			return err
 		}
+	} else if s.RequiresConfidentiality && s.KeyType == constKeyTypeString {
+		key = s.KeyTypeOption
+		logrus.Debugf("secureoverlay2: mountLayersFor key %s passed as string", key)
 	}
 
 	cp := CryptParams{}
@@ -940,7 +947,7 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 	}
 
 	// check for security meta-data
-	var s secureStorageOptions
+	var s secureImgCryptOptions
 	s, err = d.getSecurityMetaDataForId(id, "")
 	switch {
 	case err == nil:
@@ -1040,7 +1047,7 @@ func (d *Driver) Get(id string, mountLabel string) (_ containerfs.ContainerFS, e
 	var (
 		dir, diffDir, mergedDir, workDir, mountOptionsFmt string
 		lowers                                            []byte
-		s                                                 secureStorageOptions
+		s                                                 secureImgCryptOptions
 	)
 
 	logrus.Debugf("secureoverlay2: Get called w. id: %s, mountLabel: %s", id, mountLabel)
@@ -1232,7 +1239,7 @@ func (d *Driver) Put(id string) error {
 	} else {
 		logrus.Debugf("secureoverlay2: Put, do overlay unmount: umount %s", mountpoint)
 		if err1 = syscall.Unmount(mountpoint, 0); err1 != nil {
-			logrus.Errorf("secureoverlay2: Put w. id: %s, failed to unmount %s overlay with error: %s - %v", id, mountpoint, err1)
+			logrus.Errorf("secureoverlay2: Put w. id: %s, failed to unmount %s overlay with error: %s - %v", id, mountpoint, err1.Error(), err1)
 			// still continue and try to unmount lower layers ...
 		}
 	}
@@ -1342,7 +1349,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		// sense but this is handled elsewhere
 		logrus.Debugf("secureoverlay2: ApplyDiff w. id: %s, No meta-data file found. Assuming it is a legacy layer", id)
 		// create an apprirate security metadata file (or below move back will fail)
-		s = secureStorageOptions{}
+		s = secureImgCryptOptions{}
 		s.init(constNoSecurityOption)
 		if err := d.putSecurityMetaDataForId(id, "", s); err != nil {
 			logrus.Errorf("secureoverlay2: ApplyDiff w. id: %s, error in updating device status for legacy layer, error: %s", id, err.Error())
@@ -1428,7 +1435,7 @@ func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
 		// The case (a) will be handled properly but for now we treat
 		// case (b) as it would have also no security and do underreport size
 		// TODO: do on-demand securityTransform (as in Diff()) for case (b)
-		s = secureStorageOptions{}
+		s = secureImgCryptOptions{}
 		s.init(constNoSecurityOption)
 		// do _not_ persist for now but might have to reconsider this?
 	default:
@@ -1665,20 +1672,20 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 //   - parent is optional and can be "", in which case the immediate parent, if existing is taken.
 //   - Note that for non-secured layers (either legacy or explicitly no security) this might not find meta data
 //     check with os.IsNotExist(err) to (potentially legitimate) absence of meta-data (vs a retrieval/decoding problem)
-func (d *Driver) getSecurityMetaDataForId(id, parent string) (secureStorageOptions, error) {
+func (d *Driver) getSecurityMetaDataForId(id, parent string) (secureImgCryptOptions, error) {
 	logrus.Debugf("secureoverlay2: getSecurityMetaDataForId called w. id: %s, parent: %s", id, parent)
 
 	dir := d.getSecureDiffPath(id, parent, false)
 	meta_file := path.Join(dir, constMetaDataFileName)
 
-	s := secureStorageOptions{}
+	s := secureImgCryptOptions{}
 	err := s.load(meta_file)
 	logrus.Debugf("secureoverlay2: getSecurityMetaDataForId returns with security opts %s (err=%v)", s, err)
 	return s, err
 }
 
 //    Store security related meta-data from image id
-func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureStorageOptions) error {
+func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureImgCryptOptions) error {
 	logrus.Debugf("secureoverlay2: putSecurityMetaDataForID called w. id: %s, parent: %s, data %s", id, parent, s)
 
 	dir := d.getSecureDiffPath(id, parent, false)
@@ -1691,7 +1698,7 @@ func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureStorageOpti
 
 //
 var ( // really should be a const but golang doesn't support const structs ...
-	constNoSecurityOption = secureStorageOptions{
+	constNoSecurityOption = secureImgCryptOptions{
 		RequiresConfidentiality: false,
 		RequiresIntegrity:       false,
 		KeyHandle:               "",
@@ -1709,25 +1716,25 @@ var ( // really should be a const but golang doesn't support const structs ...
 
 // - utility functions
 
-func (s *secureStorageOptions) init(defaults secureStorageOptions) {
+func (s *secureImgCryptOptions) init(defaults secureImgCryptOptions) {
 	*s = defaults
 }
 
-func (s secureStorageOptions) Encode() ([]byte, error) {
+func (s secureImgCryptOptions) Encode() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (s *secureStorageOptions) Decode(bytes []byte) error {
+func (s *secureImgCryptOptions) Decode(bytes []byte) error {
 	s.init(constNoSecurityOption)
 	return json.Unmarshal(bytes, &s)
 }
 
-func (s secureStorageOptions) String() string {
+func (s secureImgCryptOptions) String() string {
 	bytes, _ := s.Encode()
 	return string(bytes)
 }
 
-func (s *secureStorageOptions) load(metaDataFile string) error {
+func (s *secureImgCryptOptions) load(metaDataFile string) error {
 	bytes, err := ioutil.ReadFile(metaDataFile)
 	if err != nil {
 		// no error as file might not exist for legitimate reasons
@@ -1743,7 +1750,7 @@ func (s *secureStorageOptions) load(metaDataFile string) error {
 	return nil
 }
 
-func (s secureStorageOptions) save(metaDataFile string) error {
+func (s secureImgCryptOptions) save(metaDataFile string) error {
 	bytes, err := s.Encode()
 	if err != nil {
 		logrus.Errorf("secureoverlay2: save, failed to encode meta-data, error: %s", err.Error())
@@ -1766,64 +1773,61 @@ func (s secureStorageOptions) save(metaDataFile string) error {
 //key will not be accessible from keyring after the timeout period.
 
 func getKeyFromKeyCache(keyHandle string) (string, string, error) {
-        //TODO Get timeout for Key in Workload agent KeyCache
-        //_,keyExpireTime := getenv()
-        // search for the key in keycache
-        out, err := exec.Command("wlagent", "get-key-from-keycache", keyHandle).CombinedOutput()
-        if err != nil {
-                return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
-        }
-        wrappedKey := string(out)
-        wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
-        wrappedKey = strings.TrimSuffix(wrappedKey, " ")
-        
-        key,  err := exec.Command("wlagent", "unwrap-key", wrappedKey).Output()
-        if err != nil {
-                return "", "", fmt.Errorf("Could not unwrap the key using tpm")
-        }
+	//TODO Get timeout for Key in Workload agent KeyCache
+	//_,keyExpireTime := getenv()
+	// search for the key in keycache
+	out, err := exec.Command("wlagent", "get-key-from-keycache", keyHandle).CombinedOutput()
+	if err != nil {
+		return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
+	}
+	wrappedKey := string(out)
+	wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
+	wrappedKey = strings.TrimSuffix(wrappedKey, " ")
 
-        //TODO reset timeout after reading the key
-        unwrappedKey := string(key)
+	key, err := exec.Command("wlagent", "unwrap-key", wrappedKey).Output()
+	if err != nil {
+		return "", "", fmt.Errorf("Could not unwrap the key using tpm")
+	}
+
+	//TODO reset timeout after reading the key
+	unwrappedKey := string(key)
 	unwrappedKey = string(unwrappedKey)
-        unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
-        unwrappedKey = strings.TrimSpace(unwrappedKey)
+	unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
+	unwrappedKey = strings.TrimSpace(unwrappedKey)
 
-        return unwrappedKey, "", nil
+	return unwrappedKey, "", nil
 }
-
 
 // Interface to retrive encryption key for the layer, using layerid as key
 
-func getKey(keyFilePath, keyHandle  string) (string, string, error) {
-         if keyHandle == "" || encryptContainerImage {
-             encryptContainerImage = true
-             logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
-             if keyFilePath != "" {
-                 unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-i", keyFilePath).CombinedOutput()
-                 if err != nil {
-                     return "","", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
-                 }
-                 key := string(unwrappedKey)
-                 key = strings.TrimSuffix(key, "\n")
-                 key = strings.TrimSpace(key)
-                 keyInfo := strings.Split(keyFilePath, "_")
-                 return key, keyInfo[1], nil
-             }else{
-                 return "","", fmt.Errorf("secureoverlay2: keyFilePath empty")
-             }
+func getKey(keyFilePath, keyHandle string) (string, string, error) {
+	if keyHandle == "" || encryptContainerImage {
+		encryptContainerImage = true
+		logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
+		if keyFilePath != "" {
+			unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-i", keyFilePath).CombinedOutput()
+			if err != nil {
+				return "", "", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
+			}
+			key := string(unwrappedKey)
+			key = strings.TrimSuffix(key, "\n")
+			key = strings.TrimSpace(key)
+			keyInfo := strings.Split(keyFilePath, "_")
+			return key, keyInfo[1], nil
+		} else {
+			return "", "", fmt.Errorf("secureoverlay2: keyFilePath empty")
+		}
 
-        }
+	}
 
-        //fetch the key for encrypting/decrypting the image
-        logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
-        return getKmsKeyFromKeyCache(keyHandle)
+	//fetch the key for encrypting/decrypting the image
+	logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
+	return getKmsKeyFromKeyCache(keyHandle)
 }
-
-
 
 //get kms key from keyring by polling on keyring every 100 milliseconds
 //polling will happen maximum MAXKEYPOLL times on keyring
-//if able to get key from keyring within poll time key will be returned else error will thrown 
+//if able to get key from keyring within poll time key will be returned else error will thrown
 
 func getKmsKeyFromKeyCache(keyHandle string) (string, string, error) {
 	counter := 0
@@ -1832,7 +1836,7 @@ GetKey:
 	//search for the key in keyring
 	data, _, err := getKeyFromKeyCache(keyHandle)
 	if err != nil {
-		logrus.Debugf("secureoverlay2: Error: Not able to get the key from keyring", err,counter)
+		logrus.Debugf("secureoverlay2: Error: Not able to get the key from keyring - %s, counter = %d", err.Error(), counter)
 		if counter < MAXKEYPOLL {
 			goto WaitForKey
 		}
@@ -1848,10 +1852,9 @@ WaitForKey:
 	goto GetKey
 }
 
-
 // perform any security transforms as specified by security options
 // this assumes either or both of confidentiality or integrity is required!
-func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, clearDiffTar io.ReadCloser, clearDiffSize int64) error {
+func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, clearDiffTar io.ReadCloser, clearDiffSize int64) error {
 	logrus.Debugf("secureoverlay2: securityTransform called w. id: %s/parent: %s, secopts: %v, clearDiffSize: %d", id, parent, s, clearDiffSize)
 	var (
 		key         string
@@ -1868,17 +1871,31 @@ func (d *Driver) securityTransform(id, parent string, s secureStorageOptions, cl
 	logrus.Debugf("secureoverlay2: securityTransform w. id: %s, do security transformation w. sec-opts: %s, crypt path: %s, mnt path: %s", id, s, diffCryptPath, diffMntPath)
 
 	if s.RequiresConfidentiality {
-		key, kmstranskey, err = getKey(s.KeyFilePath, s.KeyHandle)
+		// when key is stored in KMS
+		if s.KeyType == constKeyTypeKMS {
+			key, kmstranskey, err = getKey(s.KeyFilePath, s.KeyHandle)
+			//Update the keyhandle only when we have created a new key from KMS
+	                if kmstranskey != "" {
+				s.KeyHandle = kmstranskey
+				logrus.Infof("secureoverlay2: securityTransform  kms handle is: %s ", kmstranskey)
+			}
+		}
+
+		// when key is passed via command line - used for TESTING ONLY
+		if s.KeyType == constKeyTypeString {
+			if len(strings.TrimSpace(s.KeyTypeOption)) == 0 {
+				s.KeyTypeOption  = generateID(ConstDefaultStringKeyLength)
+			}
+
+			key = s.KeyTypeOption
+
+			logrus.Infof("secureoverlay2: securityTransform using string key: %s ", key)
+			err = nil
+		}
+
 		if err != nil {
 			return err
 		}
-
-		//Update the keyhandle only when we have created a new key from KMS
-		if kmstranskey != "" {
-			s.KeyHandle = kmstranskey
-			logrus.Infof("secureoverlay2: securityTransform  kms handle is: %s ", kmstranskey)
-		}
-		
 
 	}
 
@@ -1975,7 +1992,7 @@ func (d Driver) getSecureDiffPath(id, parent string, canBeRemote bool) string {
 
 	localSecureDiffPath := path.Join(d.dir(id), constSecureBaseDirName, diffDirName)
 	remoteSecureDiffPath := path.Join(d.options.remoteDir, id, constSecureBaseDirName, diffDirName)
-	logrus.Debugf("secureoverlay2: getSecureDiffPath %s. localSecureDiffPath %s remoteSecureDiffPath", localSecureDiffPath, remoteSecureDiffPath) 
+	logrus.Debugf("secureoverlay2: getSecureDiffPath %s. localSecureDiffPath %s remoteSecureDiffPath", localSecureDiffPath, remoteSecureDiffPath)
 	diffPath := localSecureDiffPath
 	// remote only "wins" if local does not exist and remote exists
 	if canBeRemote && d.options.remoteDir != "" {
@@ -2020,3 +2037,4 @@ func (d Driver) createSecureDiffDir(id, parent string) error {
 func (d Driver) getSecureCryptMntPath(id string) string {
 	return path.Join(d.dir(id), constSecureBaseDirName, constSecureCryptMntDirName)
 }
+

@@ -10,10 +10,9 @@ DOCKER_ENGINE=`pwd`/docker-engine
 BUILD_DIR=`pwd`
 
 git clone https://github.com/docker/docker-ce.git
-cd docker-ce
+cd $DOCKER_CE
 git checkout 19.03
 git pull
-cd $BUILD_DIR
 
 if [ $? -ne 0 ];
 then
@@ -21,14 +20,14 @@ then
   exit 1
 fi
 
-echo "Building docker client"
-DOCKER_CE_CLI=docker-ce/components/cli
-DOCKER_CE_ENGINE=docker-ce/components/engine
+echo "Applying diff for secureoverlay2 driver"
+git apply $BUILD_DIR/support-for-secure-overlay.diff
 
-cp -f $DOCKER_CLI/build.go $DOCKER_CE_CLI/cli/command/image/ 
-cp -f $DOCKER_CLI/client.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/api/types/
-cp -f $DOCKER_CLI/image_build.go $DOCKER_CE_CLI/vendor/github.com/docker/docker/client/
-cp -f $DOCKER_CLI/Dockerfile.binary-native $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
+DOCKER_CE_ENGINE=$DOCKER_CE/components/engine
+DOCKER_CE_CLI=$DOCKER_CE/components/cli
+echo "Building docker client"
+
+cd $BUILD_DIR
 
 make --directory=$DOCKER_CE_CLI -f docker.Makefile binary
 sudo chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
@@ -39,15 +38,10 @@ then
 fi
 
 cp -f $GRAPHDRIVER/register_secureoverlay2.go $DOCKER_CE_ENGINE/daemon/graphdriver/register/register_secureoverlay2.go
-cp -f $GRAPHDRIVER/driver_linux.go $DOCKER_CE_ENGINE/daemon/graphdriver/driver_linux.go
-cp -f $DOCKER_ENGINE/Dockerfile $DOCKER_CE_ENGINE/Dockerfile
-cp -f $DOCKER_ENGINE/internals.go $DOCKER_CE_ENGINE/builder/dockerfile/internals.go
-cp -f $DOCKER_ENGINE/build_routes.go $DOCKER_CE_ENGINE/api/server/router/build/build_routes.go
-cp -f $DOCKER_ENGINE/client.go $DOCKER_CE_ENGINE/api/types/client.go
 cp -rf $SECURE_OVERLAY_DIR $DOCKER_CE_ENGINE/daemon/graphdriver/
 cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
 
-echo "Building docker daemon.."
+echo "Building secure docker daemon.."
 make --directory=$DOCKER_CE_ENGINE
 sudo chown -R `whoami`:`whoami` $DOCKER_CE_ENGINE/bundles/binary-daemon
 
