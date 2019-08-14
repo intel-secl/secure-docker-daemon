@@ -1,0 +1,51 @@
+before_script:
+  - echo "Acquire::http::Proxy \"http://proxy-us.intel.com:911\";" >> /etc/apt/apt.conf
+  - echo "Acquire::https::Proxy \"http://proxy-us.intel.com:911\";" >> /etc/apt/apt.conf
+  - git config --global http.proxy "http://proxy-us.intel.com:911"
+  - git config --global http."https://gitlab.devtools.intel.com".proxy ""
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com".insteadOf "https://gitlab.devtools.intel.com"
+  # - eval $(ssh-agent -s)
+  # - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - cd $CI_PROJECT_DIR
+
+variables:
+  HTTP_PROXY: http://proxy-us.intel.com:911
+  HTTPS_PROXY: http://proxy-us.intel.com:911
+  no_proxy: ".intel.com"
+
+stages:
+ - build
+ - test
+
+build:
+  stage: build
+  tags: 
+    - go
+  script:
+  - cd $CI_PROJECT_DIR
+  - make
+
+TestCLI:
+  stage: test
+  tags: 
+    - go
+  script:
+  - make -C docker-ce/components/cli test
+  
+TestUnitEngine:
+  stage: test
+  tags: 
+    - go
+  script:
+  - cd $CI_PROJECT_DIR/docker-ce/components/engine/
+  - make test-unit
+  
+TestIntegrationEngine:
+  stage: test
+  tags: 
+    - go
+  script:
+  - cd $CI_PROJECT_DIR/docker-ce/components/engine/
+  - make test-integration
