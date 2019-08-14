@@ -1,7 +1,13 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
 before_script:
-  - echo "Acquire::http::Proxy \"http://proxy-us.intel.com:911\";" >> /etc/apt/apt.conf
-  - echo "Acquire::https::Proxy \"http://proxy-us.intel.com:911\";" >> /etc/apt/apt.conf
+  - apk update && apk add git make go bash sudo
+  - docker version
   - git config --global http.proxy "http://proxy-us.intel.com:911"
+  - git config --global https.proxy "http://proxy-us.intel.com:911"
   - git config --global http."https://gitlab.devtools.intel.com".proxy ""
   - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com".insteadOf "https://gitlab.devtools.intel.com"
   # - eval $(ssh-agent -s)
@@ -11,6 +17,8 @@ before_script:
   - cd $CI_PROJECT_DIR
 
 variables:
+  http_proxy: http://proxy-us.intel.com:911
+  https_proxy: http://proxy-us.intel.com:911
   HTTP_PROXY: http://proxy-us.intel.com:911
   HTTPS_PROXY: http://proxy-us.intel.com:911
   no_proxy: ".intel.com"
@@ -23,6 +31,7 @@ build:
   stage: build
   tags: 
     - go
+    - docker
   script:
   - cd $CI_PROJECT_DIR
   - make
@@ -31,6 +40,7 @@ TestCLI:
   stage: test
   tags: 
     - go
+    - docker
   script:
   - make -C docker-ce/components/cli test
   
@@ -38,6 +48,7 @@ TestUnitEngine:
   stage: test
   tags: 
     - go
+    - docker
   script:
   - cd $CI_PROJECT_DIR/docker-ce/components/engine/
   - make test-unit
@@ -46,6 +57,7 @@ TestIntegrationEngine:
   stage: test
   tags: 
     - go
+    - docker
   script:
   - cd $CI_PROJECT_DIR/docker-ce/components/engine/
   - make test-integration
