@@ -1,8 +1,5 @@
 image: docker:latest
 
-services:
-  - docker:dind
-
 before_script:
   - apk update && apk add git make go bash sudo
   - docker version
@@ -30,8 +27,7 @@ stages:
 build:
   stage: build
   tags: 
-    - go
-    - docker
+    - secdocker
   script:
   - cd $CI_PROJECT_DIR
   - make
@@ -39,16 +35,14 @@ build:
 TestCLI:
   stage: test
   tags: 
-    - go
-    - docker
+    - secdocker
   script:
   - make -C docker-ce/components/cli test
   
 TestUnitEngine:
   stage: test
   tags: 
-    - go
-    - docker
+    - secdocker
   script:
   - cd $CI_PROJECT_DIR/docker-ce/components/engine/
   - make test-unit
@@ -56,8 +50,7 @@ TestUnitEngine:
 TestIntegrationEngine:
   stage: test
   tags: 
-    - go
-    - docker
+    - secdocker
   script:
   - cd $CI_PROJECT_DIR/docker-ce/components/engine/
   - make test-integration
