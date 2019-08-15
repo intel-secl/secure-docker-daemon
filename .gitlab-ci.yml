@@ -1,11 +1,4 @@
-image: docker:latest
-
-services:
-  - docker:dind
-
 before_script:
-  - apk update && apk add git make go bash
-  - docker version
   - git config --global http.proxy "http://proxy-us.intel.com:911"
   - git config --global https.proxy "http://proxy-us.intel.com:911"
   - git config --global http."https://gitlab.devtools.intel.com".proxy ""
@@ -39,6 +32,7 @@ TestCLI:
   tags: 
     - secdocker
   script:
+  - cd $CI_PROJECT_DIR
   - make -C docker-ce/components/cli test
   
 TestUnitEngine:
@@ -46,6 +40,7 @@ TestUnitEngine:
   tags: 
     - secdocker
   script:
+  - cd $CI_PROJECT_DIR
   - make -C docker-ce/components/engine test-unit
   
 TestIntegrationEngine:
