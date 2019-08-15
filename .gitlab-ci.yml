@@ -9,7 +9,6 @@ before_script:
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - cd $CI_PROJECT_DIR
-  - make clean
 
 variables:
   http_proxy: http://proxy-us.intel.com:911

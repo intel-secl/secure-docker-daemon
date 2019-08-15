@@ -53,7 +53,7 @@ then
 fi
 
 # Change ownership on binaries
-sudo chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
-sudo chown -R `whoami`:`whoami` $DOCKER_CE_ENGINE/bundles/binary-daemon
+#chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
+#chown -R `whoami`:`whoami` $DOCKER_CE_ENGINE/bundles/binary-daemon
 
 echo "Successfully built docker binaries"
