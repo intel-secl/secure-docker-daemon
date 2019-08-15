@@ -10,8 +10,6 @@ before_script:
   - git config --global https.proxy "http://proxy-us.intel.com:911"
   - git config --global http."https://gitlab.devtools.intel.com".proxy ""
   - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com".insteadOf "https://gitlab.devtools.intel.com"
-  # - eval $(ssh-agent -s)
-  # - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - cd $CI_PROJECT_DIR
@@ -22,6 +20,7 @@ variables:
   HTTP_PROXY: http://proxy-us.intel.com:911
   HTTPS_PROXY: http://proxy-us.intel.com:911
   no_proxy: ".intel.com"
+  DOCKER_GRAPHDRIVER: secureoverlay2
 
 stages:
  - build
@@ -47,13 +46,12 @@ TestUnitEngine:
   tags: 
     - secdocker
   script:
-  - cd $CI_PROJECT_DIR/docker-ce/components/engine/
-  - make test-unit
+  - make -C docker-ce/components/engine test-unit
   
 TestIntegrationEngine:
   stage: test
   tags: 
     - secdocker
   script:
-  - cd $CI_PROJECT_DIR/docker-ce/components/engine/
-  - make test-integration
+    - cd $CI_PROJECT_DIR
+    - make -C docker-ce/components/engine test-integration
