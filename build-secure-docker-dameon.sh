@@ -44,11 +44,18 @@ cp -rf $SECURE_OVERLAY_INTEGRATION $DOCKER_CE_ENGINE/integration/
 
 
 # Build CLI and Engine
-make -C $DOCKER_CE  static
+make -C $DOCKER_CE_CLI -f docker.Makefile binary
+if [ $? -ne 0 ];
+then
+  echo "Error while building docker CLI, exiting"
+  exit 1
+fi
+
+make -C $DOCKER_CE_ENGINE -f docker.Makefile binary
 
 if [ $? -ne 0 ];
 then
-  echo "Error while building docker CLI and Engine, exiting"
+  echo "Error while building docker Engine, exiting"
   exit 1
 fi
 
