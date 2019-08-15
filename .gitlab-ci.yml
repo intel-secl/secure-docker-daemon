@@ -1,7 +1,4 @@
-image: docker:latest
-
 before_script:
-  - apk update && apk add git make go bash sudo
   - docker version
   - git config --global http.proxy "http://proxy-us.intel.com:911"
   - git config --global https.proxy "http://proxy-us.intel.com:911"
