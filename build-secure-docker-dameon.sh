@@ -43,7 +43,7 @@ cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
 cp -rf $SECURE_OVERLAY_INTEGRATION $DOCKER_CE_ENGINE/integration/
 
 
-# Build CLI and Engine
+# Build CLI
 make -C $DOCKER_CE_CLI -f docker.Makefile binary
 if [ $? -ne 0 ];
 then
@@ -51,7 +51,7 @@ then
   exit 1
 fi
 
-make -C $DOCKER_CE_ENGINE -f docker.Makefile binary
+make -C $DOCKER_CE_ENGINE binary
 
 if [ $? -ne 0 ];
 then
