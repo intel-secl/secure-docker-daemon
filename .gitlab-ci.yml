@@ -24,7 +24,7 @@ variables:
 
 cache:
     paths:
-      - d$CI_PROJECT_DIRi/docker-ce/
+      - docker-ce/
 
 build:
   artifacts:
@@ -38,20 +38,10 @@ build:
   tags:
     - secdocker
 
-TestCLI:
+TestUnitEngine:
   script:
     - "cd $CI_PROJECT_DIR"
-    - "make testcli"
-  stage: test
-  tags:
-    - secdocker
-  dependencies:
-    - build
-
-TestIntegrationEngine:
-  script:
-    - "cd $CI_PROJECT_DIR"
-    - "make testintegrationengine"
+    - "make testunitengine"
   stage: test
   tags:
     - secdocker
@@ -62,6 +52,16 @@ TestUnitEngine:
   script:
     - "cd $CI_PROJECT_DIR"
     - "make testunitengine"
+  stage: test
+  tags:
+    - secdocker
+  dependencies:
+    - build
+
+TestIntegrationEngine:
+  script:
+    - "cd $CI_PROJECT_DIR"
+    - "make testintegrationengine"
   stage: test
   tags:
     - secdocker

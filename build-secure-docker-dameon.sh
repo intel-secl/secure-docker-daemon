@@ -1,16 +1,17 @@
 #!/bin/bash
 
 DOCKER_CLI=`pwd`/docker-cli/
-GRAPHDRIVER=`pwd`/graphdriver
-SECURE_OVERLAY_DIR=`pwd`/secureoverlay2
-SECURE_OVERLAY_INTEGRATION=`pwd`/integration
-DOCKER_BUILD=`pwd`/out
-DEPS_DIR=`pwd`/vendor
-DOCKER_CE=`pwd`/docker-ce
-DOCKER_ENGINE=`pwd`/docker-engine
+GRAPHDRIVER=`pwd`/graphdriver/
+SECURE_OVERLAY_DIR=`pwd`/secureoverlay2/
+SECURE_OVERLAY_INTEGRATION=`pwd`/integration/
+DOCKER_BUILD=`pwd`/out/
+DEPS_DIR=`pwd`/vendor/
+DOCKER_CE=`pwd`/docker-ce/
+DOCKER_ENGINE=`pwd`/docker-engine/
 BUILD_DIR=`pwd`
-DOCKER_CE_ENGINE=$DOCKER_CE/components/engine
-DOCKER_CE_CLI=$DOCKER_CE/components/cli
+DOCKER_CE_ENGINE=$DOCKER_CE/components/engine/
+DOCKER_CE_CLI=$DOCKER_CE/components/cli/
+DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR=$DOCKER_CE_ENGINE/integration/secureoverlay/
 
 git clone https://github.com/docker/docker-ce.git
 cd $DOCKER_CE
@@ -40,7 +41,7 @@ sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy 
 cp -f $GRAPHDRIVER/register_secureoverlay2.go $DOCKER_CE_ENGINE/daemon/graphdriver/register/register_secureoverlay2.go
 cp -rf $SECURE_OVERLAY_DIR $DOCKER_CE_ENGINE/daemon/graphdriver/
 cp -rf $DEPS_DIR/rp.intel.com $DOCKER_CE_ENGINE/vendor/
-mkdir -p $DOCKER_CE_ENGINE/integration/secureoverlay && cp -rf $SECURE_OVERLAY_INTEGRATION/* $DOCKER_CE_ENGINE/integration/secureoverlay
+mkdir -p $DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR && cp -f $SECURE_OVERLAY_INTEGRATION/* $DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR
 
 
 # Build CLI
