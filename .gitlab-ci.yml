@@ -23,6 +23,10 @@ build:
   stage: build
   tags: 
     - secdocker
+  cache:
+    paths:
+    - $CI_PROJECT_DIR
+
   script:
   - cd $CI_PROJECT_DIR
   - make
