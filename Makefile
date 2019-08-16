@@ -29,7 +29,7 @@ testintegrationengine:
 
 .PHONY: clean
 clean:
-	sudo rm -rf ${DOCKER_BUILD} docker-ce/
+	if [ -d "${DOCKER_CE_CLI}" ]; then make -C ${DOCKER_CE_CLI} -f  docker.Makefile clean; fi; if  [ -d "${DOCKER_CE_CLI}" ]; then make -C ${DOCKER_CE_ENGINE} clean; fi;  sudo rm -rf ${DOCKER_BUILD} docker-ce/
 
 all: clean build testcli testunitengine testintegrationengine
 

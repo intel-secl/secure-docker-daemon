@@ -46,8 +46,8 @@ variables:
   GIT_CLEAN_FLAGS: none
   HTTPS_PROXY: "http://proxy-us.intel.com:911"
   HTTP_PROXY: "http://proxy-us.intel.com:911"
-  NO_PROXY: "127.0.0.1,localhost,0.0.0.0,172.*"
+  NO_PROXY: "127.0.0.1,localhost,0.0.0.0,reg-name.io"
   http_proxy: "http://proxy-us.intel.com:911"
   https_proxy: "http://proxy-us.intel.com:911"
-  no_proxy: ".intel.com,172.,127.0.0.1,localhost"
+  no_proxy: ".intel.com,172.,127.0.0.1,localhost,reg-name.io"
 
