@@ -38,7 +38,7 @@ TestCLI:
     - secdocker
   script:
   - cd $CI_PROJECT_DIR
-  - make -C docker-ce/components/cli test
+  - make -C docker-ce/components/cli -f docker.Makefile test
   
 TestUnitEngine:
   stage: test
