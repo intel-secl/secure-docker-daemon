@@ -7,17 +7,29 @@ DOCKER_BUILD := out
 
 .PHONY: all
 
-installer:
+.PHONY: build
+build:
 	mkdir -p out
 	chmod +x build-secure-docker-dameon.sh
 	./build-secure-docker-dameon.sh
 	cp -f $(DOCKER_CE_CLI)/build/docker-linux-amd64 $(DOCKER_BUILD)/docker
 	cp -f $(DOCKER_CE_ENGINE)/bundles/binary-daemon/dockerd-dev $(DOCKER_BUILD)/dockerd-ce
 
-.PHONY: test
-	 DOCKERDEBUG="y" DOCKER_GRAPHDRIVER="secureoverlay2" make -C ${DOCKER_CE_ENGINE} test
+.PHONY: testcli
+testcli:
+	make -C ${DOCKER_CE_CLI} -f docker.Makefile test
 
-all: clean installer
+.PHONY: testunitengine
+testunitengine:
+	make -C ${DOCKER_CE_ENGINE} test-unit
 
+.PHONY: testintegrationengine
+testintegrationengine:
+	DOCKER_GRAPHDRIVER="secureoverlay2" make -C ${DOCKER_CE_ENGINE} test-integration
+
+.PHONY: clean
 clean:
-	rm -rf $DOCKER_BUILD docker-ce/
+	sudo rm -rf ${DOCKER_BUILD} docker-ce/
+
+all: clean build testcli testunitengine testintegrationengine
+
