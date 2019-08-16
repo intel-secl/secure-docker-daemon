@@ -14,6 +14,7 @@ variables:
   HTTPS_PROXY: http://proxy-us.intel.com:911
   no_proxy: ".intel.com"
   DOCKER_GRAPHDRIVER: secureoverlay2
+  GIT_CLEAN_FLAGS: none
 
 stages:
  - build
