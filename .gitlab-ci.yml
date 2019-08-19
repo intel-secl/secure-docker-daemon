@@ -48,17 +48,11 @@ TestUnitEngine:
   dependencies:
     - build
 
-TestUnitEngine:
-  script:
-    - "cd $CI_PROJECT_DIR"
-    - "make testunitengine"
-  stage: test
-  tags:
-    - secdocker
-  dependencies:
-    - build
-
 TestIntegrationEngine:
+  artifacts:
+    paths:
+      - docker-ce/components/engine/bundles/test-integration/test.log
+      - docker-ce/components/engine/bundles/test-integration/docker.log
   script:
     - "cd $CI_PROJECT_DIR"
     - "make testintegrationengine"

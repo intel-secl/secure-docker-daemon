@@ -36,6 +36,7 @@ sed -i '/golang/a ENV HTTP_PROXY http://proxy-us.intel.com:911\nENV HTTPS_PROXY 
 sed -i '/golang/a ENV NO_PROXY 127.0.0.1,localhost\nENV no_proxy 127.0.0.1,localhost\n' $DOCKER_CE_ENGINE/Dockerfile
 sed -i '/FROM dev AS final/a RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y cryptsetup\n' $DOCKER_CE_ENGINE/Dockerfile
 sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy http://proxy-us.intel.com:911\nENV no_proxy locahost,127.0.0.1,reg-name.io\nENV NO_PROXY locahost,127.0.0.1,reg-name.io' $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
+sed -i 's/docker run --rm -i/docker run --rm -t/g' $DOCKER_CE_ENGINE/Makefile
 
 # Patches for Engine
 cp -f $GRAPHDRIVER/register_secureoverlay2.go $DOCKER_CE_ENGINE/daemon/graphdriver/register/register_secureoverlay2.go
