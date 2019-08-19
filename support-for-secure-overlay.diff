@@ -417,3 +417,23 @@ index 81730e9..0357ca4 100644
  	}
  
  	if err := ls.driver.CreateReadWrite(initID, parent, createOpts); err != nil {
+diff --git a/components/engine/client/image_build.go b/components/engine/client/image_build.go
+index 8fcf995036..d2d987fcf8 100644
+--- a/components/engine/client/image_build.go
++++ b/components/engine/client/image_build.go
+@@ -142,5 +142,14 @@ func (cli *Client) imageBuildOptionsToQuery(options types.ImageBuildOptions) (ur
+ 		}
+ 		query.Set("outputs", string(outputsJSON))
+ 	}
++
++	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
++	if options.ImgCryptOpt != nil {
++		imgCryptJSON, err := json.Marshal(options.ImgCryptOpt)
++		if err != nil {
++			return query, nil
++		}
++		query.Set("imgcryptopt", string(imgCryptJSON))
++	}
+ 	return query, nil
+ }
+
