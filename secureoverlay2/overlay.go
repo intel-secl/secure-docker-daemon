@@ -45,6 +45,7 @@ import (
 	"github.com/docker/docker/pkg/parsers/kernel"
 	units "github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -468,7 +469,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 // we had created.
 func (d *Driver) Cleanup() error {
 	logrus.Debug("secureoverlay2: Cleanup called")
-	return mount.Unmount(d.home)
+	return mount.RecursiveUnmount(d.home)
 }
 
 // CreateReadWrite creates a layer that is writable for use as a container
@@ -1238,7 +1239,7 @@ func (d *Driver) Put(id string) error {
 		err1 = nil
 	} else {
 		logrus.Debugf("secureoverlay2: Put, do overlay unmount: umount %s", mountpoint)
-		if err1 = syscall.Unmount(mountpoint, 0); err1 != nil {
+		if err1 = unix.Unmount(mountpoint, unix.MNT_DETACH); err1 != nil {
 			logrus.Errorf("secureoverlay2: Put w. id: %s, failed to unmount %s overlay with error: %s - %v", id, mountpoint, err1.Error(), err1)
 			// still continue and try to unmount lower layers ...
 		}
