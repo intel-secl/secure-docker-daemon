@@ -29,7 +29,7 @@ type TestData struct {
 	copts                          []string
 }
 
-const SECURE_METADATA_KEY string = "security-meta-data"
+const secureMetadataKey string = "security-meta-data"
 
 var ctx = context.Background()
 
@@ -112,7 +112,7 @@ func RunSecureOverlaySuccessBuildTest(t *testing.T, c TestData){
 			t.Fatal(err)
 		}
 
-		assert.Check(t, is.Contains(imageInspectResponse.GraphDriver.Data, SECURE_METADATA_KEY), "security-meta-data not /" +
+		assert.Check(t, is.Contains(imageInspectResponse.GraphDriver.Data, secureMetadataKey), "security-meta-data not /" +
 			" present in encrypted image actual: %v", imageInspectResponse.GraphDriver.Data)
 	})
 }
@@ -224,7 +224,7 @@ func TestSecureOverlayVanillaImageFromEncryptedBase(t *testing.T) {
 			t.Fatal(err)
 		}
 		var ok bool
-		_, ok = imageInspectResponse.GraphDriver.Data[SECURE_METADATA_KEY]
+		_, ok = imageInspectResponse.GraphDriver.Data[secureMetadataKey]
 		assert.Check(t, !ok, "security-meta-data not present in an unencrypted image : %v", imageInspectResponse.GraphDriver.Data)
 	})
 }
@@ -270,7 +270,7 @@ func TestSecureOverlayNoopBuild(t *testing.T) {
 			t.Fatal(err)
 		}
 		var ok bool
-		_, ok = imageInspectResponse.GraphDriver.Data[SECURE_METADATA_KEY]
+		_, ok = imageInspectResponse.GraphDriver.Data[secureMetadataKey]
 		assert.Check(t, !ok, "security-meta-data should not present where no changes or only noop changes are made to base image : %v", imageInspectResponse.GraphDriver.Data)
 	})
 }

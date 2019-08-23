@@ -29,46 +29,70 @@ import (
 )
 
 const (
+	// ConstCryptsetupBin : Path to the cryptsetup binary
 	ConstCryptsetupBin		= "/sbin/cryptsetup"
+        // ConstDevMapperPrefix : Path to the mapper devices
 	ConstDevMapperPrefix		= "/dev/mapper"
+        // ConstMinImageSize : Minimum size for a Docker Image layer
 	ConstMinImageSize		= 10 * 1024 * 1024 // 10 MB
+        // ConstCryptsetupOverhead : Extra free space allocated to an image layer for any overruns
 	ConstCryptsetupOverhead		= 2 * 1024 * 1024 // 4 MB
+        // ConstFsOverhead : Percentage of layer size allocate for overhead
 	ConstFsOverhead			= 50 // (in %) 5%
-
+        // ConstLuksCmdFormat : Command for formatting dmcrypt devices
 	ConstLuksCmdFormat		= "luks-format"
+        // ConstLuksCmdOpen : Command for opening dmcrypt devices
 	ConstLuksCmdOpen		= "luks-open"
+        // ConstLuksCmdClose : Command for closing dmcrypt devices
 	ConstLuksCmdClose		= "luks-close"
+        // ConstLuksCmdRemove : Command for deleting dmcrypt devices
 	ConstLuksCmdRemove		= "luks-remove"
 
+        // ConstVerityCmdFormat : Command for formatting block device with integrity checks
 	ConstVerityCmdFormat		= "verity-format"
+        // ConstVerityCmdCreate : Command for creating a block device with integrity checks
 	ConstVerityCmdCreate		= "verity-create"
+        // ConstVerityCmdRemove : Command for removing device
 	ConstVerityCmdRemove		= "verity-remove"
+        // ConstVerityCmdVerify : Command for verifying integrity of block device
 	ConstVerityCmdVerify		= "verity-verify"
 
+        // ConstTypeCrypt : String denoting an dmcrypt encrypted device
 	ConstTypeCrypt			= "type-crypt"
+        // ConstTypeVerity : String denoting an unencrypted block device with integrity checks
 	ConstTypeVerity			= "type-verity"
+        // ConstTypeCryptVerity : String denoting an encrypted block device with integrity checks
 	ConstTypeCryptVerity		= "type-crypt-verity"
 
-	ConstFsBlockSize		= "1024"
-	// Note: higher ConstFsBlockSize, e.g., 4096, will increase relative filesystem overhead
+	// ConstFsBlockSize : Higher values of this setting e.g., 4096, will increase relative filesystem overhead
 	// and increase likelihood the overhead estimation will to small resulting on overflow
 	// of filesystem during securityTransform
+        ConstFsBlockSize                = "1024"
+
+        // ConstFsReservedBlocks : Number of FS blocks reserved per image layer mount
 	ConstFsReservedBlocks		= "0"
 
+        // ConstFsTypeExt4 : String denoting the ext4 filesystem
 	ConstFsTypeExt4			= "ext4"
 
+        // ConstBlockDevBasePath : Path to the block devices
 	ConstBlockDevBasePath		= "/sys/dev/block"
+        // ConstLoopMajorNum : Major device number for loopback device
 	ConstLoopMajorNum		= 7
+        // ConstBackingFilePath : Path within the loopback filesystem for backing_file storage
 	ConstBackingFilePath		= "loop/backing_file"
+        // ConstMaxLoopDevices : Ceiling on the number of loopback devices that can be opened simulataneously
 	ConstMaxLoopDevices		= 256
 )
 
+// RawImage : This represents an image mount with a loopback device
 type RawImage struct {
 	ImagePath	string
 	// TODO: this object can be removed after taking care of DevPath() API
 	LoDev		losetup.Device
 }
 
+// CryptParams : Information passed to dmcrypt for encrypt/decrypt operations
 type CryptParams struct {
 	Cipher		string
 	Key		string
@@ -77,11 +101,13 @@ type CryptParams struct {
 	ReadOnly	bool
 }
 
+// VerityParams : Information required for image integrity verification
 type VerityParams struct {
 	RootHash	string
 	HashImage	string
 }
 
+// DeviceParams : Information required to tie the image to the dmcrypt mount device
 type DeviceParams struct {
 	FsType		string
 	Mnt		string
@@ -89,15 +115,17 @@ type DeviceParams struct {
 	GIDMaps         []idtools.IDMap
 }
 
+// VirtualDevice : An encapsulation of an encrypted docker image
 type VirtualDevice struct {
 	Image		RawImage
 	Name		string
 	Type		string
 	Deviceparams	DeviceParams
-	Cryptparams 	CryptParams
+	Cryptparams	CryptParams
 	Verityparams	VerityParams
 }
 
+// DeviceAPI : Enumerates methods to be implemented by a encrypted mount store
 type DeviceAPI interface {
 	Create(size int64) error
 
@@ -169,7 +197,7 @@ func mountDev(source, target, fsType string, readOnly bool) error {
 		return nil
 	}
 
-	return errors.New(fmt.Sprintf("source path %s does not exists", source))
+	return fmt.Errorf("source path %s does not exists", source)
 }
 
 func readonlyMountDev(source, target, fsType string) error {
@@ -224,7 +252,7 @@ func createImageFile(filePath string, size int64) error {
 	//	for uid,gid. How they are used and do we need to add uid,gid for
 	//	this file too for better access control??
 	if err := os.Truncate(filePath, size); err != nil {
-		logrus.Errorf("faild to create image file %s", filePath)
+		logrus.Errorf("failed to create image file %s", filePath)
 		return err
 	}
 
@@ -293,7 +321,7 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 			cmd = fmt.Sprintf("cryptsetup -v --type luks close %s", nm)
 
 		default:
-			return errors.New(fmt.Sprintf("invalid luks command: %s", luksCmd))
+			return fmt.Errorf("invalid luks command: %s", luksCmd)
 	}
 
 	if out, err := runCmd(cmd); err != nil {
@@ -342,7 +370,7 @@ func executeVerityCommand(verityCmd, devPath, name string, params VerityParams) 
 	case ConstVerityCmdVerify:
 		cmd = fmt.Sprintf("veritysetup verify %s %s %s", dev, hashDev, hash)
 	default:
-		return "", errors.New(fmt.Sprintf("invalid veritysetup command: %s", verityCmd))
+		return "", fmt.Errorf("invalid veritysetup command: %s", verityCmd)
 	}
 
 	out := ""
@@ -366,6 +394,8 @@ func executeVerityCommand(verityCmd, devPath, name string, params VerityParams) 
 // **************************************************************************************
 
 // *************** raw image management *************************************************
+
+// Create : Creates the overlay image file
 func (i RawImage) Create(size int64) error {
 	logrus.Debugf("secureoverlay2: RawImage Create called w. image file %s and size: %d", i.ImagePath, size)
 	sz := safeSize(size)
@@ -374,10 +404,11 @@ func (i RawImage) Create(size int64) error {
 	return err
 }
 
+// Get : Creates the overlay image file
 func (i *RawImage) Get() error {
 	logrus.Debug("secureoverlay2: RawImage Get called")
 	if rt, _ := exists(i.ImagePath); ! rt {
-		return errors.New(fmt.Sprintf("Image file %s does not exists", i.ImagePath))
+		return fmt.Errorf("Image file %s does not exists", i.ImagePath)
 	}
 
 	// attach raw image file to loop device
@@ -393,6 +424,7 @@ func (i *RawImage) Get() error {
 	return nil
 }
 
+// Put : Detaches the image mount from the filesystem
 func (i RawImage) Put() error {
 	logrus.Debug("secureoverlay2: RawImage Put called")
 	// get device using backingFile:
@@ -413,6 +445,7 @@ func (i RawImage) Put() error {
 	return err
 }
 
+// Remove : Removes the image file on deletion
 func (i RawImage) Remove() error {
 	logrus.Debug("secureoverlay2: RawImage Remove called")
 	err := os.Remove(i.ImagePath)
@@ -420,6 +453,7 @@ func (i RawImage) Remove() error {
 	return err
 }
 
+// devPath : Returns the path to the loopback device
 func (i RawImage) devPath() string {
 	return i.LoDev.Path()
 }
@@ -427,6 +461,7 @@ func (i RawImage) devPath() string {
 
 // *************** virtual device APIs ******************************************************
 
+// Init : Initialize the virtual device
 func (d *VirtualDevice) Init() {
 	// set default crypt params
 	d.Cryptparams.Cipher = ConstDefaultCipher
@@ -448,6 +483,7 @@ func (d *VirtualDevice) Init() {
 	d.Type = ConstTypeCrypt
 }
 
+// Create : Creates a virtual device with the specified properties
 func (d *VirtualDevice) Create(size int64) error {
 	logrus.Debugf("secureoverlay2: VirtualDevice Create called w. name %s, type %s, size: %d", d.Name, d.Type, size)
 
@@ -533,6 +569,7 @@ func (d *VirtualDevice) format() error {
 	return nil
 }
 
+// ImportData : Move data from a diff-tarball into a mount device
 func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	logrus.Debugf("secureoverlay2: VirtualDevice ImportData called w. name %s, type %s", d.Name, d.Type)
 
@@ -617,6 +654,7 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	return nil
 }
 
+// Get : Open the encrypted mount for IO operations
 func (d *VirtualDevice) Get() error {
 	logrus.Debugf("secureoverlay2: VirtualDevice Get called w. name %s, type %s", d.Name, d.Type)
 
@@ -655,6 +693,7 @@ func (d *VirtualDevice) Get() error {
 	return nil
 }
 
+// Put : Unmount the encrypted mount
 func (d *VirtualDevice) Put() error {
 	logrus.Debugf("secureoverlay2: VirtualDevice Put called w. name %s, type %s", d.Name, d.Type)
 
@@ -688,6 +727,7 @@ func (d *VirtualDevice) Put() error {
 	return err
 }
 
+// Remove : Remove the encrypted mount from the filesystem on deletion
 func (d *VirtualDevice) Remove() error {
 	logrus.Debugf("secureoverlay2: VirtualDevice Remove called w. name %s, type %s", d.Name, d.Type)
 	err := d.Image.Remove()

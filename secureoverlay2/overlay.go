@@ -110,15 +110,19 @@ const (
 	// set to key-type-string and no value is passed for KeyHandle
 	ConstDefaultStringKeyLength = 12
 
-	// security transform related options
+	// security transform related options passed to dmcrypt
+
+        // ConstDefaultHashType : set the hashing algorithm used by dmcrypt
 	ConstDefaultHashType = "sha256"
+        // ConstDefaultCipher : set the crypt cipher used by dmcrypt
 	ConstDefaultCipher   = "aes-xts-plain"
+        // ConstDefaultKeySize : set the key size in bits used by dmcrypt
 	ConstDefaultKeySize  = "256"
 
 	// security storage related options
 	constMetaDataFileName      = "security.meta"
-	ConstImageName             = "base.img"
-	ConstHashImageName         = "hash.img"
+	constImageName             = "base.img"
+	constHashImageName         = "hash.img"
 	constSecureBaseDirName     = "secure"
 	constSecureCryptMntDirName = "crypt-mnt"
 
@@ -347,7 +351,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 		case "secureoverlay2.defaultkeydesc":
 			o.defaultSecOpts.KeyDesc = val
 		default:
-			return nil, fmt.Errorf("secureoverlay2: Unknown option %s\n", key)
+			return nil, fmt.Errorf("secureoverlay2: Unknown option %s", key)
 		}
 	}
 	return o, nil
@@ -424,7 +428,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 	}
 
 	// additional data
-	s, err := d.getSecurityMetaDataForId(id, "")
+	s, err := d.getSecurityMetaDataForID(id, "")
 	switch {
 	case err == nil:
 		if s.RequiresConfidentiality || s.RequiresIntegrity {
@@ -592,7 +596,7 @@ func (d *Driver) initSecureStorage(id string, opts secureImgCryptOptions) error 
 		// .. but still continue and write (modified) secopts
 	}
 
-	return d.putSecurityMetaDataForId(id, "", opts)
+	return d.putSecurityMetaDataForID(id, "", opts)
 }
 
 // Parse overlay storage options
@@ -828,7 +832,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 
 	// check for security meta-data
 	var s secureImgCryptOptions
-	s, err = d.getSecurityMetaDataForId(id, "")
+	s, err = d.getSecurityMetaDataForID(id, "")
 	switch {
 	case err == nil:
 		// we found it
@@ -883,7 +887,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	vp := VerityParams{}
 	if s.RequiresIntegrity {
 		vp.RootHash = s.RootHash
-		vp.HashImage = path.Join(source, ConstHashImageName)
+		vp.HashImage = path.Join(source, constHashImageName)
 	}
 
 	dp := DeviceParams{
@@ -894,7 +898,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	}
 
 	ri := RawImage{
-		ImagePath: path.Join(source, ConstImageName),
+		ImagePath: path.Join(source, constImageName),
 	}
 
 	devType := ""
@@ -949,7 +953,7 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 
 	// check for security meta-data
 	var s secureImgCryptOptions
-	s, err = d.getSecurityMetaDataForId(id, "")
+	s, err = d.getSecurityMetaDataForID(id, "")
 	switch {
 	case err == nil:
 		// we found it
@@ -989,7 +993,7 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 	}
 
 	ri := RawImage{
-		ImagePath: path.Join(source, ConstImageName),
+		ImagePath: path.Join(source, constImageName),
 	}
 
 	devType := ""
@@ -1132,7 +1136,7 @@ func (d *Driver) Get(id string, mountLabel string) (_ containerfs.ContainerFS, e
 	}
 
 	// if we are already securityTransformed with security enabled, we can only mount read-only!
-	s, err = d.getSecurityMetaDataForId(id, "")
+	s, err = d.getSecurityMetaDataForID(id, "")
 	if err != nil {
 		return nil, fmt.Errorf("Missing security meta data (err=%v)", err)
 	}
@@ -1342,7 +1346,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		return -1, err
 	}
 
-	s, err := d.getSecurityMetaDataForId(id, "")
+	s, err := d.getSecurityMetaDataForID(id, "")
 	switch {
 	case os.IsNotExist(err):
 		// Note: there might be layers created by other drivers which do not have any security meta-data.
@@ -1352,7 +1356,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		// create an apprirate security metadata file (or below move back will fail)
 		s = secureImgCryptOptions{}
 		s.init(constNoSecurityOption)
-		if err := d.putSecurityMetaDataForId(id, "", s); err != nil {
+		if err := d.putSecurityMetaDataForID(id, "", s); err != nil {
 			logrus.Errorf("secureoverlay2: ApplyDiff w. id: %s, error in updating device status for legacy layer, error: %s", id, err.Error())
 			return -1, err
 		}
@@ -1425,7 +1429,7 @@ func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
 	logrus.Debugf("secureoverlay2: DiffSize called w. id: %s, parent: %s", id, parent)
 
 	// read security meta data to see whether we are already initialized
-	s, err := d.getSecurityMetaDataForId(id, parent)
+	s, err := d.getSecurityMetaDataForID(id, parent)
 	switch {
 	case err == nil:
 		// good ...
@@ -1470,13 +1474,14 @@ func (f fileGetNilCloser) Close() error {
 	return nil
 }
 
+// DiffGetter : Get the diff of the two layers
 func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 	logrus.Debugf("secureoverlay2: DiffGetter called w. id: %s", id)
 
 	diffPath := d.getDiffPath(id)
 
 	// check for security meta-data
-	s, err := d.getSecurityMetaDataForId(id, "")
+	s, err := d.getSecurityMetaDataForID(id, "")
 	switch {
 	case err == nil:
 		if s.RequiresConfidentiality || s.RequiresIntegrity {
@@ -1510,12 +1515,12 @@ func (d *Driver) Diff(id, parent string) (io.ReadCloser, error) {
 	logrus.Debugf("secureoverlay2: Diff called w. id: %s, parent: %s", id, parent)
 
 	// 1.) read security meta data
-	s, err := d.getSecurityMetaDataForId(id, parent)
+	s, err := d.getSecurityMetaDataForID(id, parent)
 	if err != nil {
 		// we might not find it as it's for a parent which is not immediate parent  ..
 		if !d.isParent(id, parent) {
 			// .. so try default
-			s, err = d.getSecurityMetaDataForId(id, "")
+			s, err = d.getSecurityMetaDataForID(id, "")
 			if err != nil {
 				// Note: this should be only called by Diff from a layer we created, so it should always have
 				// metadata regardless of security settings contrary to, say lower layers which were potentially created
@@ -1530,7 +1535,7 @@ func (d *Driver) Diff(id, parent string) (io.ReadCloser, error) {
 		}
 		// .. and (unintialized!) metadata
 		s.IsSecurityTransformed = false
-		d.putSecurityMetaDataForId(id, parent, s)
+		d.putSecurityMetaDataForID(id, parent, s)
 	}
 
 	// 2.) read clear-text diff stream ...
@@ -1586,7 +1591,7 @@ func (d *Driver) Diff(id, parent string) (io.ReadCloser, error) {
 				logrus.Debug("secureoverlay2: Diff found empty layer")
 				s.IsEmptyLayer = true
 				s.IsSecurityTransformed = true
-				if err := d.putSecurityMetaDataForId(id, parent, s); err != nil {
+				if err := d.putSecurityMetaDataForID(id, parent, s); err != nil {
 					logrus.Errorf("secureoverlay2: Diff returns w. id: %s/parent: %s, error in updating metadata for empty layer, error: %s", id, parent, err.Error())
 					return nil, err
 				}
@@ -1673,31 +1678,30 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 //   - parent is optional and can be "", in which case the immediate parent, if existing is taken.
 //   - Note that for non-secured layers (either legacy or explicitly no security) this might not find meta data
 //     check with os.IsNotExist(err) to (potentially legitimate) absence of meta-data (vs a retrieval/decoding problem)
-func (d *Driver) getSecurityMetaDataForId(id, parent string) (secureImgCryptOptions, error) {
-	logrus.Debugf("secureoverlay2: getSecurityMetaDataForId called w. id: %s, parent: %s", id, parent)
+func (d *Driver) getSecurityMetaDataForID(id, parent string) (secureImgCryptOptions, error) {
+	logrus.Debugf("secureoverlay2: getSecurityMetaDataForID called w. id: %s, parent: %s", id, parent)
 
 	dir := d.getSecureDiffPath(id, parent, false)
-	meta_file := path.Join(dir, constMetaDataFileName)
+	metaFile := path.Join(dir, constMetaDataFileName)
 
 	s := secureImgCryptOptions{}
-	err := s.load(meta_file)
-	logrus.Debugf("secureoverlay2: getSecurityMetaDataForId returns with security opts %s (err=%v)", s, err)
+	err := s.load(metaFile)
+	logrus.Debugf("secureoverlay2: getSecurityMetaDataForID returns with security opts %s (err=%v)", s, err)
 	return s, err
 }
 
 //    Store security related meta-data from image id
-func (d *Driver) putSecurityMetaDataForId(id, parent string, s secureImgCryptOptions) error {
+func (d *Driver) putSecurityMetaDataForID(id, parent string, s secureImgCryptOptions) error {
 	logrus.Debugf("secureoverlay2: putSecurityMetaDataForID called w. id: %s, parent: %s, data %s", id, parent, s)
 
 	dir := d.getSecureDiffPath(id, parent, false)
-	meta_file := path.Join(dir, constMetaDataFileName)
+	metaFile := path.Join(dir, constMetaDataFileName)
 
-	err := s.save(meta_file)
+	err := s.save(metaFile)
 	logrus.Debugf("secureoverlay2: putSecurityMetaDataForID returns, err=%v", err)
 	return err
 }
 
-//
 var ( // really should be a const but golang doesn't support const structs ...
 	constNoSecurityOption = secureImgCryptOptions{
 		RequiresConfidentiality: false,
@@ -1802,6 +1806,9 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 // Interface to retrive encryption key for the layer, using layerid as key
 
 func getKey(keyFilePath, keyHandle string) (string, string, error) {
+        var rKey string
+        var rKeyInfo string
+        var rErr error
 	if keyHandle == "" || encryptContainerImage {
 		encryptContainerImage = true
 		logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
@@ -1814,16 +1821,18 @@ func getKey(keyFilePath, keyHandle string) (string, string, error) {
 			key = strings.TrimSuffix(key, "\n")
 			key = strings.TrimSpace(key)
 			keyInfo := strings.Split(keyFilePath, "_")
-			return key, keyInfo[1], nil
+                        rKey, rKeyInfo, rErr = key, keyInfo[1], nil
 		} else {
-			return "", "", fmt.Errorf("secureoverlay2: keyFilePath empty")
+                        rKey, rKeyInfo, rErr = "", "", fmt.Errorf("secureoverlay2: keyFilePath empty")
 		}
 
-	}
+	} else {
+                //fetch the key for encrypting/decrypting the image
+                logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
+                rKey, rKeyInfo, rErr  = getKmsKeyFromKeyCache(keyHandle)
+        }
 
-	//fetch the key for encrypting/decrypting the image
-	logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
-	return getKmsKeyFromKeyCache(keyHandle)
+        return rKey, rKeyInfo, rErr
 }
 
 //get kms key from keyring by polling on keyring every 100 milliseconds
@@ -1912,7 +1921,7 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 	vp := VerityParams{}
 	if s.RequiresIntegrity {
 		vp.RootHash = s.RootHash
-		vp.HashImage = path.Join(diffCryptPath, ConstHashImageName)
+		vp.HashImage = path.Join(diffCryptPath, constHashImageName)
 	}
 
 	dp := DeviceParams{
@@ -1923,7 +1932,7 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 	}
 
 	ri := RawImage{
-		ImagePath: path.Join(diffCryptPath, ConstImageName),
+		ImagePath: path.Join(diffCryptPath, constImageName),
 	}
 
 	devType := ""
@@ -1966,7 +1975,7 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 	}
 	s.IsSecurityTransformed = true
 
-	if err := d.putSecurityMetaDataForId(id, parent, s); err != nil {
+	if err := d.putSecurityMetaDataForID(id, parent, s); err != nil {
 		logrus.Errorf("secureoverlay2: securityTransform w. id: %s, error in updating device status, error: %s", id, err.Error())
 		return err
 	}
