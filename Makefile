@@ -13,7 +13,7 @@ build:
 	chmod +x build-secure-docker-dameon.sh
 	./build-secure-docker-dameon.sh
 	cp -f $(DOCKER_CE_CLI)/build/docker-linux-amd64 $(DOCKER_BUILD)/docker
-	cp -f $(DOCKER_CE_ENGINE)/bundles/binary-daemon/dockerd-${VERSION} $(DOCKER_BUILD)/dockerd
+	cp -f $(DOCKER_CE_ENGINE)/bundles/binary-daemon/dockerd-${VERSION} $(DOCKER_BUILD)/dockerd-ce
 
 .PHONY: testcli
 testcli:
