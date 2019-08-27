@@ -135,7 +135,6 @@ const (
 // meta-data related to storage security settings
 // options:
 //	RequiresConfidentiality: set to true if encryption is required for the storage, false otherwise
-//	RequiresIntegrity: set to true if integrity protection is needed, false otherwise
 //	KeyHandle: handle for the key fetching mechanism (empty string if not undefined)
 //	KeyType: different mechanisms to retrieve keying information
 //	- constKeyTypeString: 	keyHandle string as key for encrypiton (DO NOT USE IN PRODUCTION, THIS IS FOR TESTING ONLY)
@@ -151,12 +150,10 @@ const (
 //	KeySize: size of the key to be used for encryption (in bits)
 //	CryptCipher: type of the cipher to be used for LUKS encryption
 //	CryptHashType: hash type to be used for LUKS encrytion
-//	RootHash: root hash of the integrity hash device
 //	IsDiffed: true if layer was successfully securityTransformed
 
 type secureImgCryptOptions struct {
 	RequiresConfidentiality bool   `json:"RequiresConfidentiality"`
-	RequiresIntegrity       bool   `json:"RequiresIntegrity"`
 	KeyHandle               string `json:"KeyHandle,omitempty"`
 	KeySize                 string `json:"KeySize,omitempty"`
 	KeyType                 string `json:"KeyType,omitempty"`
@@ -323,11 +320,6 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			if err != nil {
 				return nil, fmt.Errorf("secureoverlay2: %s not a boolean value for option secureoverlay2.defaultRequiresConfidentiality", val)
 			}
-		case "secureoverlay2.defaultrequiresintegrity":
-			o.defaultSecOpts.RequiresIntegrity, err = strconv.ParseBool(val)
-			if err != nil {
-				return nil, fmt.Errorf("secureoverlay2: %s not a boolean value for option secureoverlay2.defaultRequiresIntegrity", val)
-			}
 		case "secureoverlay2.defaultkeytype":
 			lcVal := strings.ToLower(val)
 			switch lcVal {
@@ -431,7 +423,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 	s, err := d.getSecurityMetaDataForID(id, "")
 	switch {
 	case err == nil:
-		if s.RequiresConfidentiality || s.RequiresIntegrity {
+		if s.RequiresConfidentiality {
 			// embedd security meta-data if it is a secured image.
 			// Note: only including it for secured images allows non-secured images still
 			// to work with Manifest Schema 1 of registry. For secured images, in particular with
@@ -446,10 +438,6 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 				s.KeySize = ""
 				s.KeyFilePath = ""
 				s.CryptCipher = ""
-			}
-			if !s.RequiresIntegrity {
-				s.CryptHashType = ""
-				s.RootHash = ""
 			}
 			bytes, _ := s.Encode()
 			logrus.Debugf("secureoverlay2: GetMetadata, adding (encoded) security meta-data %s", s)
@@ -617,12 +605,6 @@ func (d *Driver) parseImgCryptOpt(imgCryptOpt map[string]string, opts *secureImg
 				opts.RequiresConfidentiality = v
 			} else {
 				return fmt.Errorf("secureoverlay2: %s not a boolean value for option RequiresConfidentiality", val)
-			}
-		case "requiresintegrity":
-			if v, e := strconv.ParseBool(val); e == nil {
-				opts.RequiresIntegrity = v
-			} else {
-				return fmt.Errorf("secureoverlay2: %s not a boolean value for option RequiresIntegrity", val)
 			}
 		case "keyhandle":
 			opts.KeyHandle = val
@@ -849,7 +831,7 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	}
 
 	// check for required security method
-	if !(s.RequiresConfidentiality || s.RequiresIntegrity) {
+	if !(s.RequiresConfidentiality) {
 		logrus.Infof("secureoverlay2: mountLayersFor, no security required for the layer id: %s", id)
 		return nil
 	}
@@ -884,12 +866,6 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 		cp.HashType = s.CryptHashType
 	}
 
-	vp := VerityParams{}
-	if s.RequiresIntegrity {
-		vp.RootHash = s.RootHash
-		vp.HashImage = path.Join(source, constHashImageName)
-	}
-
 	dp := DeviceParams{
 		FsType:  ConstFsTypeExt4,
 		Mnt:     target,
@@ -905,12 +881,6 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 	if s.RequiresConfidentiality {
 		devType = ConstTypeCrypt
 	}
-	if s.RequiresIntegrity {
-		devType = ConstTypeVerity
-	}
-	if s.RequiresConfidentiality && s.RequiresIntegrity {
-		devType = ConstTypeCryptVerity
-	}
 
 	// mount crypt device
 	vDev = VirtualDevice{
@@ -919,7 +889,6 @@ func (d *Driver) mountLayersFor(id string) (err error) {
 		Type:         devType,
 		Deviceparams: dp,
 		Cryptparams:  cp,
-		Verityparams: vp,
 	}
 
 	if err = vDev.Get(); err != nil {
@@ -970,7 +939,7 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 	}
 
 	// check for required security method
-	if !(s.RequiresConfidentiality || s.RequiresIntegrity) {
+	if !(s.RequiresConfidentiality) {
 		logrus.Infof("secureoverlay2: umountLayersFor w. id: %s, no security required for the layer", id)
 		return nil
 	}
@@ -1000,12 +969,6 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 	if s.RequiresConfidentiality {
 		devType = ConstTypeCrypt
 	}
-	if s.RequiresIntegrity {
-		devType = ConstTypeVerity
-	}
-	if s.RequiresConfidentiality && s.RequiresIntegrity {
-		devType = ConstTypeCryptVerity
-	}
 
 	// mount crypt device
 	vDev := VirtualDevice{
@@ -1014,7 +977,6 @@ func (d *Driver) umountLayersFor(id string) (err error) {
 		Type:         devType,
 		Deviceparams: dp,
 		Cryptparams:  CryptParams{},
-		Verityparams: VerityParams{},
 	}
 
 	if err = vDev.Put(); err != nil {
@@ -1140,7 +1102,7 @@ func (d *Driver) Get(id string, mountLabel string) (_ containerfs.ContainerFS, e
 	if err != nil {
 		return nil, fmt.Errorf("Missing security meta data (err=%v)", err)
 	}
-	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality && !s.RequiresIntegrity) {
+	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality) {
 		mountOptionsFmt = "upperdir=%s,lowerdir=%s,workdir=%s"
 	} else {
 		logrus.Infof("secureoverlay2: Mounting layer %s read-only!", id) // in common use-cases this should be fine but put a default log to be on safe side
@@ -1192,7 +1154,7 @@ func (d *Driver) Get(id string, mountLabel string) (_ containerfs.ContainerFS, e
 	}
 	recoveryState = umountMergeRS
 
-	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality && !s.RequiresIntegrity) {
+	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality) {
 		// chown "workdir/work" to the remapped root UID/GID. Overlay fs inside a
 		// user namespace requires this to move a directory from lower to upper.
 		var rootUID, rootGID int
@@ -1363,12 +1325,12 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 	case err != nil:
 		logrus.Errorf("secureoverlay2: ApplyDiff w. id: %s, meta-data exists but is corrupted", id)
 		return -1, err
-	case s.RequiresConfidentiality || s.RequiresIntegrity:
+	case s.RequiresConfidentiality:
 		size, err := directory.Size(context.TODO(), diffCryptPath)
 		logrus.Debugf("secureoverlay2: ApplyDiff w. id: %s & secured layer, return size: %d, err: %v", id, size, err)
 		return size, err
 
-	case !s.RequiresConfidentiality && !s.RequiresIntegrity:
+	case !s.RequiresConfidentiality:
 		logrus.Debugf("secureoverlay2: ApplyDiff w. id: %s, layer with no security", id)
 	}
 
@@ -1447,7 +1409,7 @@ func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
 		return -1, fmt.Errorf("secureoverlay2: DiffSize w. id %s/parent %s, error in reading security options (err=%s)", id, parent, err.Error())
 	}
 
-	if s.IsSecurityTransformed && !s.IsEmptyLayer && (s.RequiresConfidentiality || s.RequiresIntegrity) {
+	if s.IsSecurityTransformed && !s.IsEmptyLayer && (s.RequiresConfidentiality) {
 		size, err = directory.Size(context.TODO(), d.getSecureDiffPath(id, parent, false))
 	} else {
 		if useNaiveDiff(d.home) || !d.isParent(id, parent) {
@@ -1484,7 +1446,7 @@ func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 	s, err := d.getSecurityMetaDataForID(id, "")
 	switch {
 	case err == nil:
-		if s.RequiresConfidentiality || s.RequiresIntegrity {
+		if s.RequiresConfidentiality {
 			diffPath = d.getSecureDiffPath(id, "", false)
 		}
 	case os.IsNotExist(err):
@@ -1544,7 +1506,7 @@ func (d *Driver) Diff(id, parent string) (io.ReadCloser, error) {
 		clearDiffSize int64
 	)
 	// .. either we have to do a security transform or the device is already initialized but unsecured
-	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality && !s.RequiresIntegrity) {
+	if !s.IsSecurityTransformed || s.IsEmptyLayer || (!s.RequiresConfidentiality) {
 		if useNaiveDiff(d.home) || !d.isParent(id, parent) {
 			logrus.Debugf("secureoverlay2: Diff w. id %s/parent %s, doing naiveDiff.Diff", id, parent)
 			// Note: the latter expression covers both the case where id is base (and hence parent=="")
@@ -1611,7 +1573,7 @@ func (d *Driver) Diff(id, parent string) (io.ReadCloser, error) {
 	}
 
 	// 3.) handle the no-security or empty case
-	if (!s.RequiresConfidentiality && !s.RequiresIntegrity) || s.IsEmptyLayer {
+	if (!s.RequiresConfidentiality) || s.IsEmptyLayer {
 		logrus.Debugf("secureoverlay2: Diff returns on successful Diff with unsecured date and directory size: %d", clearDiffSize)
 		return clearDiffTar, nil
 	}
@@ -1705,7 +1667,6 @@ func (d *Driver) putSecurityMetaDataForID(id, parent string, s secureImgCryptOpt
 var ( // really should be a const but golang doesn't support const structs ...
 	constNoSecurityOption = secureImgCryptOptions{
 		RequiresConfidentiality: false,
-		RequiresIntegrity:       false,
 		KeyHandle:               "",
 		KeySize:                 ConstDefaultKeySize,
 		KeyType:                 constKeyTypeKeyrings,
@@ -1863,7 +1824,7 @@ WaitForKey:
 }
 
 // perform any security transforms as specified by security options
-// this assumes either or both of confidentiality or integrity is required!
+// confidentiality is required!
 func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, clearDiffTar io.ReadCloser, clearDiffSize int64) error {
 	logrus.Debugf("secureoverlay2: securityTransform called w. id: %s/parent: %s, secopts: %v, clearDiffSize: %d", id, parent, s, clearDiffSize)
 	var (
@@ -1872,9 +1833,9 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 		err         error
 	)
 
-	// secure diff path for dm-crypt and dm-verity
+	// secure diff path for dm-crypt
 	diffCryptPath := d.getSecureDiffPath(id, parent, false)
-	// Note: while we could write securely remote (assuming integrity is enabled) we assume by
+	// Note: while we could write securely remote we assume by
 	// default remote is mounted read-only, so write local no matter what
 	diffMntPath := d.getSecureCryptMntPath(id)
 
@@ -1918,12 +1879,6 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 		cp.HashType = s.CryptHashType
 	}
 
-	vp := VerityParams{}
-	if s.RequiresIntegrity {
-		vp.RootHash = s.RootHash
-		vp.HashImage = path.Join(diffCryptPath, constHashImageName)
-	}
-
 	dp := DeviceParams{
 		FsType:  ConstFsTypeExt4,
 		Mnt:     diffMntPath,
@@ -1939,12 +1894,6 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 	if s.RequiresConfidentiality {
 		devType = ConstTypeCrypt
 	}
-	if s.RequiresIntegrity {
-		devType = ConstTypeVerity
-	}
-	if s.RequiresConfidentiality && s.RequiresIntegrity {
-		devType = ConstTypeCryptVerity
-	}
 
 	// create device ...
 	vDev := VirtualDevice{
@@ -1957,7 +1906,6 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 		Type:         devType,
 		Deviceparams: dp,
 		Cryptparams:  cp,
-		Verityparams: vp,
 	}
 
 	if err := vDev.Create(clearDiffSize); err != nil {
@@ -1969,10 +1917,6 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 		return err
 	}
 
-	// update device status (and optionally dm-verity root hash) in meta-data
-	if s.RequiresIntegrity {
-		s.RootHash = vDev.getRootHash()
-	}
 	s.IsSecurityTransformed = true
 
 	if err := d.putSecurityMetaDataForID(id, parent, s); err != nil {
@@ -2043,7 +1987,7 @@ func (d Driver) createSecureDiffDir(id, parent string) error {
 
 //   Get a mount point for crypto-protected filesystems.
 //   This should be used only for temporary operations such as security transforms
-//   as usually the dm-crypt and/or dm-verity protected filesystem will be mounted on normal "diff" directory
+//   as usually the dm-crypt protected filesystem will be mounted on normal "diff" directory
 func (d Driver) getSecureCryptMntPath(id string) string {
 	return path.Join(d.dir(id), constSecureBaseDirName, constSecureCryptMntDirName)
 }

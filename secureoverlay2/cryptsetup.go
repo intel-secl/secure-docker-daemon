@@ -48,21 +48,8 @@ const (
         // ConstLuksCmdRemove : Command for deleting dmcrypt devices
 	ConstLuksCmdRemove		= "luks-remove"
 
-        // ConstVerityCmdFormat : Command for formatting block device with integrity checks
-	ConstVerityCmdFormat		= "verity-format"
-        // ConstVerityCmdCreate : Command for creating a block device with integrity checks
-	ConstVerityCmdCreate		= "verity-create"
-        // ConstVerityCmdRemove : Command for removing device
-	ConstVerityCmdRemove		= "verity-remove"
-        // ConstVerityCmdVerify : Command for verifying integrity of block device
-	ConstVerityCmdVerify		= "verity-verify"
-
         // ConstTypeCrypt : String denoting an dmcrypt encrypted device
 	ConstTypeCrypt			= "type-crypt"
-        // ConstTypeVerity : String denoting an unencrypted block device with integrity checks
-	ConstTypeVerity			= "type-verity"
-        // ConstTypeCryptVerity : String denoting an encrypted block device with integrity checks
-	ConstTypeCryptVerity		= "type-crypt-verity"
 
 	// ConstFsBlockSize : Higher values of this setting e.g., 4096, will increase relative filesystem overhead
 	// and increase likelihood the overhead estimation will to small resulting on overflow
@@ -101,12 +88,6 @@ type CryptParams struct {
 	ReadOnly	bool
 }
 
-// VerityParams : Information required for image integrity verification
-type VerityParams struct {
-	RootHash	string
-	HashImage	string
-}
-
 // DeviceParams : Information required to tie the image to the dmcrypt mount device
 type DeviceParams struct {
 	FsType		string
@@ -122,7 +103,6 @@ type VirtualDevice struct {
 	Type		string
 	Deviceparams	DeviceParams
 	Cryptparams	CryptParams
-	Verityparams	VerityParams
 }
 
 // DeviceAPI : Enumerates methods to be implemented by a encrypted mount store
@@ -352,47 +332,6 @@ func getRootHash(out string) string {
     return strings.TrimSpace(rootHash[1])
 }
 
-func executeVerityCommand(verityCmd, devPath, name string, params VerityParams) (string, error) {
-	cmd := ""
-	dev := devPath
-	hashDev := params.HashImage
-	hash := params.RootHash
-	nm := name
-
-	switch(verityCmd) {
-	case ConstVerityCmdFormat:
-		cmd = fmt.Sprintf("veritysetup format --data-block-size %s %s %s", ConstFsBlockSize, dev, hashDev)
-		// Note: it is crucial that format has same blocksize as filesystem or mount will fail later!!
-	case ConstVerityCmdCreate:
-		cmd = fmt.Sprintf("veritysetup create %s %s %s %s", nm, dev, hashDev, hash)
-	case ConstVerityCmdRemove:
-		cmd = fmt.Sprintf("veritysetup remove %s", nm)
-	case ConstVerityCmdVerify:
-		cmd = fmt.Sprintf("veritysetup verify %s %s %s", dev, hashDev, hash)
-	default:
-		return "", fmt.Errorf("invalid veritysetup command: %s", verityCmd)
-	}
-
-	out := ""
-	var err error
-	if out, err = runCmd(cmd); err != nil {
-		logrus.Errorf("failed to execute verity command %s, error: %s, out: %s", verityCmd, err.Error(), out)
-		return "", err
-	}
-
-	// parse output to read root hash and save it for future use
-	if verityCmd == ConstVerityCmdFormat {
-		hash = getRootHash(out)
-		if hash == "" {
-			return "", errors.New("Invalid root hash after verity format")
-		}
-	}
-
-	return hash, nil
-}
-
-// **************************************************************************************
-
 // *************** raw image management *************************************************
 
 // Create : Creates the overlay image file
@@ -470,10 +409,6 @@ func (d *VirtualDevice) Init() {
 	d.Cryptparams.KeySize = ConstDefaultKeySize
 	d.Cryptparams.ReadOnly = true
 
-	// set default verity params
-	d.Verityparams.HashImage = ""
-	d.Verityparams.RootHash = ""
-
 	// set default device params
 	d.Deviceparams.FsType = ConstFsTypeExt4
 	d.Deviceparams.Mnt = ""
@@ -492,10 +427,6 @@ func (d *VirtualDevice) Create(size int64) error {
 	switch(d.Type) {
 		case ConstTypeCrypt:
 			sz = safeSize(size + computeFsOverhead(size) + computeCryptOverhead(size))
-		case ConstTypeVerity:
-			sz = safeSize(size + computeFsOverhead(size))
-		case ConstTypeCryptVerity:
-			sz = safeSize(size + computeFsOverhead(size) + computeCryptOverhead(size))
 		default:
 			return errors.New("Invalid device type")
 	}
@@ -504,20 +435,8 @@ func (d *VirtualDevice) Create(size int64) error {
 	return err
 }
 
-func (d *VirtualDevice) setRootHash(hash string) {
-	d.Verityparams.RootHash = hash
-}
-
-func (d *VirtualDevice) getRootHash() string{
-	return d.Verityparams.RootHash
-}
-
 func (d *VirtualDevice) getCryptName() string {
 	return fmt.Sprintf("%s-crypt", d.Name)
-}
-
-func (d *VirtualDevice) getVerityName() string {
-	return fmt.Sprintf("%s-verity", d.Name)
 }
 
 func (d *VirtualDevice) format() error {
@@ -536,7 +455,7 @@ func (d *VirtualDevice) format() error {
 	dev := d.Image.devPath()
 
 	// check if crypt setup required
-	if d.Type == ConstTypeCrypt || d.Type == ConstTypeCryptVerity {
+	if d.Type == ConstTypeCrypt {
 		// format encrypted device
 		if err := executeLuksCommand( ConstLuksCmdFormat, dev,
 					d.getCryptName(), d.Cryptparams); err != nil {return err}
@@ -556,7 +475,7 @@ func (d *VirtualDevice) format() error {
 	}
 
 	// clean up crypt setup
-	if d.Type == ConstTypeCrypt || d.Type == ConstTypeCryptVerity {
+	if d.Type == ConstTypeCrypt {
 		// close encrypted device
 		if err := executeLuksCommand( ConstLuksCmdClose, "", d.getCryptName(),
 				d.Cryptparams); err != nil {
@@ -584,7 +503,7 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	dev := d.Image.devPath()
 
 	// check if crypt setup required
-	if d.Type == ConstTypeCrypt || d.Type == ConstTypeCryptVerity {
+	if d.Type == ConstTypeCrypt {
 		// open encrypted device
 		d.Cryptparams.ReadOnly = false
 		if err := executeLuksCommand( ConstLuksCmdOpen, dev,
@@ -615,22 +534,11 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	}
 
 	// clean up crypt setup
-	if d.Type == ConstTypeCrypt || d.Type == ConstTypeCryptVerity {
+	if d.Type == ConstTypeCrypt {
 		if err := executeLuksCommand( ConstLuksCmdClose, "",
 			d.getCryptName(), d.Cryptparams); err != nil {
 				logrus.Errorf("secureoverlay2: VirtualDevice ImportData, failed to close crypt device, error: %s", err.Error())
 			}
-	}
-
-	// compute device integrity
-	if d.Type == ConstTypeVerity || d.Type == ConstTypeCryptVerity {
-		h := ""
-		var err error
-		if h, err = executeVerityCommand(ConstVerityCmdFormat, d.Image.devPath(),
-				d.getVerityName(), d.Verityparams); err != nil {
-					return err
-				}
-		d.setRootHash(h)
 	}
 
 	// NOTE: After this import triggered by graphdriver securityTransform(), the daemon will issue a
@@ -663,17 +571,8 @@ func (d *VirtualDevice) Get() error {
 	// device path
 	dev := d.Image.devPath()
 
-	// check if verity setup required
-	if d.Type == ConstTypeVerity || d.Type == ConstTypeCryptVerity {
-		_, err := executeVerityCommand(ConstVerityCmdCreate, dev,
-			d.getVerityName(), d.Verityparams)
-		if err != nil {return err}
-
-		dev = path.Join(ConstDevMapperPrefix, d.getVerityName())
-	}
-
 	// check if crypt setup required
-	if d.Type == ConstTypeCrypt || d.Type == ConstTypeCryptVerity {
+	if d.Type == ConstTypeCrypt {
 		// open encrypted device
 		d.Cryptparams.ReadOnly = true
 		if err := executeLuksCommand( ConstLuksCmdOpen, dev,
@@ -704,19 +603,10 @@ func (d *VirtualDevice) Put() error {
 	}
 
 	// clean up crypt setup, if exists
-	if d.Type == ConstTypeCrypt || d.Type == ConstTypeCryptVerity {
+	if d.Type == ConstTypeCrypt {
 		if err := executeLuksCommand( ConstLuksCmdClose, "",
 					d.getCryptName(), d.Cryptparams); err != nil {
 			logrus.Debugf("secureoverlay2: VirtualDevice Put, ignoring luksClose failure: %s", err.Error())
-		        // See NOTE at end of ImportData() for reason why we ignore errors here
-		}
-	}
-
-	// clean up verity setup, if exists
-	if d.Type == ConstTypeVerity || d.Type == ConstTypeCryptVerity {
-		if _, err := executeVerityCommand(ConstVerityCmdRemove, "",
-				d.getVerityName(), d.Verityparams); err != nil {
-			logrus.Debugf("secureoverlay2: VirtualDevice Put, ignoring verityRemove failure: %s", err.Error())
 		        // See NOTE at end of ImportData() for reason why we ignore errors here
 		}
 	}
