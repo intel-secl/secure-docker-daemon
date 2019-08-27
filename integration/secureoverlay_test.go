@@ -1,4 +1,4 @@
-package secureoverlay
+package secureoverlay // import "github.com/docker/docker/integration/secureoverlay"
 
 import (
 	"bytes"
