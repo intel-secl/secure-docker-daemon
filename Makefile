@@ -25,7 +25,9 @@ testunitengine:
 
 .PHONY: testintegrationengine
 testintegrationengine:
-	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS="-test.run TestBuild*/TestRun*/TestSecureOverlay*" make -C ${DOCKER_CE_ENGINE} test-integration 
+	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestBuild' make -C ${DOCKER_CE_ENGINE} test-integration && \
+	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestRun' make -C ${DOCKER_CE_ENGINE} test-integration && \
+	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestSecureOverlay' make -C ${DOCKER_CE_ENGINE} test-integration
 
 .PHONY: clean
 clean:
