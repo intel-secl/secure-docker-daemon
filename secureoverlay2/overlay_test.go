@@ -2,6 +2,11 @@
 
 package secureoverlay2 // import "github.com/docker/docker/daemon/graphdriver/secureoverlay2"
 
+/*
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import (
 	"io/ioutil"
 	"os"
