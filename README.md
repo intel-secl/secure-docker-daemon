@@ -1,6 +1,6 @@
 ##### Intel<sup>®</sup> Security Libraries for Data Center  - Secure Docker Daemon
 Secure docker daemon is built by applying the patch which includes the secureoverlay2 graphdriver on docker-ce with 19.03 version.
-This is currently supported for 19.03 version
+This is currently supported for 19.03 version.
 Provides additional ability encrypt and decrypt containers using ISecL Key Management Service.
 The secure docker daemon is bundled along with ISecl components workload-agent and worload policy manager.
 
@@ -35,7 +35,6 @@ export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 ## Build Secure Docker Daemon
 
 - Git clone the Secure Docker Daemon
-- Run scripts to build the Secure Docker Daemon
 
 ```shell
 cd secure-docker-daemon
