@@ -48,6 +48,7 @@ mkdir -p $DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR && cp -f $SECURE_OVERLAY_IN
 
 
 # Build CLI
+#sudo chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
 make -C $DOCKER_CE_CLI -f docker.Makefile binary
 if [ $? -ne 0 ];
 then
@@ -55,6 +56,7 @@ then
   exit 1
 fi
 
+#sudo chown -R `whoami`:`whoami` $DOCKER_CE_ENGINE/bundles/binary-daemon
 VERSION=${VERSION} make -C $DOCKER_CE_ENGINE binary
 
 if [ $? -ne 0 ];

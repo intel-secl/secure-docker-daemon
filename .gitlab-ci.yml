@@ -6,7 +6,7 @@ before_script:
   - "git config --global url.\"https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com\".insteadOf \"https://gitlab.devtools.intel.com\""
   - "mkdir -p ~/.ssh"
   - "chmod 700 ~/.ssh"
-  - "cd $CI_PROJECT_DIR"
+#  - "cd $CI_PROJECT_DIR"
 
 stages: 
   - build
