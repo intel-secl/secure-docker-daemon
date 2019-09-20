@@ -28,6 +28,10 @@ DOCKER_CE_ENGINE=$DOCKER_CE/components/engine
 DOCKER_CE_CLI=$DOCKER_CE/components/cli
 
 sed -i 's/golang:1.12.7/golang:1.12.5/g' $DOCKER_CE_ENGINE/Dockerfile
+sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy http://proxy-us.intel.com:911\n' $DOCKER_CE_ENGINE/Dockerfile
+sed -i '/golang/a ENV HTTP_PROXY http://proxy-us.intel.com:911\nENV HTTPS_PROXY http://proxy-us.intel.com:911\n' $DOCKER_CE_ENGINE/Dockerfile
+sed -i '/golang/a ENV NO_PROXY 127.0.0.1,localhost\nENV no_proxy 127.0.0.1,localhost\n' $DOCKER_CE_ENGINE/Dockerfile
+sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy http://proxy-us.intel.com:911\n' $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
 sed -i '$a RUN apt-get -y update && apt-get install -y cryptsetup\n'
 echo "Building docker client"
 
