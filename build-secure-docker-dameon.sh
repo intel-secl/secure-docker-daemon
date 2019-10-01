@@ -32,7 +32,7 @@ sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy 
 sed -i '/golang/a ENV HTTP_PROXY http://proxy-us.intel.com:911\nENV HTTPS_PROXY http://proxy-us.intel.com:911\n' $DOCKER_CE_ENGINE/Dockerfile
 sed -i '/golang/a ENV NO_PROXY 127.0.0.1,localhost\nENV no_proxy 127.0.0.1,localhost\n' $DOCKER_CE_ENGINE/Dockerfile
 sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy http://proxy-us.intel.com:911\n' $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
-sed -i '$a RUN apt-get -y update && apt-get install -y cryptsetup\n'
+sed -i '$a RUN apt update -y && DEBIAN_FRONTEND=noninteractive apt-get install -y cryptsetup\n' $DOCKER_CE_ENGINE/Dockerfile
 echo "Building docker client"
 
 cd $BUILD_DIR
