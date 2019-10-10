@@ -1780,24 +1780,14 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 	logrus.Info(ctxkey)
 	logrus.Info("=================================================ctx==============================")
         if(ctxkey == nil){
-                 out, err := exec.Command("wlagent", "get-key-from-keycache", keyHandle).CombinedOutput()
+                key, err := exec.Command("wlagent", "fetch-key", keyHandle, "").Output()
                 if err != nil {
-                        return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
+                    return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
                 }
-                wrappedKey := string(out)
-                wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
-                wrappedKey = strings.TrimSuffix(wrappedKey, " ")
-
-                key, err := exec.Command("wlagent", "unwrap-key", wrappedKey).Output()
-                if err != nil {
-                 return "", "", fmt.Errorf("Could not unwrap the key using tpm")
-                 }
-
-                //TODO reset timeout after reading the key
                 unwrappedKey := string(key)
                 unwrappedKey = string(unwrappedKey)
                 unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
-                 unwrappedKey = strings.TrimSpace(unwrappedKey)
+                unwrappedKey = strings.TrimSpace(unwrappedKey)
                 ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
                 logrus.Info("=================without context==============")
                 return unwrappedKey, "", nil
