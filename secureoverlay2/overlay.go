@@ -1779,7 +1779,7 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
         ctxkey := ctx.Value(keyHandle)
 	logrus.Info(ctxkey)
 	logrus.Info("=================================================ctx==============================")
-        if(ctxkey == nil){
+        if(ctxkey == nil || ctxkey == ""){
                 key, err := exec.Command("wlagent", "fetch-key", keyHandle, "").Output()
                 if err != nil {
                     return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
