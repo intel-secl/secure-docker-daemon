@@ -1777,8 +1777,6 @@ func (s secureImgCryptOptions) save(metaDataFile string) error {
 func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 
         ctxkey := ctx.Value(keyHandle)
-	logrus.Info(ctxkey)
-	logrus.Info("=================================================ctx==============================")
         if(ctxkey == nil || ctxkey == ""){
                 key, err := exec.Command("wlagent", "fetch-key", keyHandle, "").Output()
                 if err != nil {
@@ -1789,10 +1787,8 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
                 unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
                 unwrappedKey = strings.TrimSpace(unwrappedKey)
                 ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
-                logrus.Info("=================without context==============")
                 return unwrappedKey, "", nil
         }
-        logrus.Info("=================with context==============", ctx.Value(keyHandle))
         return fmt.Sprintf("%v", ctx.Value(keyHandle)), "", nil
 
 }
