@@ -27,12 +27,13 @@ git apply $BUILD_DIR/support-for-secure-overlay.diff
 DOCKER_CE_ENGINE=$DOCKER_CE/components/engine
 DOCKER_CE_CLI=$DOCKER_CE/components/cli
 
-sed -i 's/golang:1.12.7/golang:1.12.5/g' $DOCKER_CE_ENGINE/Dockerfile
-sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy http://proxy-us.intel.com:911\n' $DOCKER_CE_ENGINE/Dockerfile
-sed -i '/golang/a ENV HTTP_PROXY http://proxy-us.intel.com:911\nENV HTTPS_PROXY http://proxy-us.intel.com:911\n' $DOCKER_CE_ENGINE/Dockerfile
-sed -i '/golang/a ENV NO_PROXY 127.0.0.1,localhost\nENV no_proxy 127.0.0.1,localhost\n' $DOCKER_CE_ENGINE/Dockerfile
-sed -i '/golang/a ENV http_proxy http://proxy-us.intel.com:911\nENV https_proxy http://proxy-us.intel.com:911\n' $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
-sed -i '$a RUN apt update -y && DEBIAN_FRONTEND=noninteractive apt-get install -y cryptsetup\n' $DOCKER_CE_ENGINE/Dockerfile
+if [[ ! -z "${http_proxy}" && ! -z "${https_proxy}" ]]; then
+  echo "Applying http_proxy and https_proxy to client and engine Dockerfiles"
+  sed -i "/golang/a ENV http_proxy ${http_proxy}\nENV https_proxy ${http_proxy}\n" $DOCKER_CE_ENGINE/Dockerfile
+  sed -i "/golang/a ENV http_proxy ${https_proxy}\nENV https_proxy ${https_proxy}\n" $DOCKER_CE_CLI/dockerfiles/Dockerfile.binary-native
+fi
+
+sed -i "$a RUN apt update -y && DEBIAN_FRONTEND=noninteractive apt-get install -y cryptsetup\n" $DOCKER_CE_ENGINE/Dockerfile
 echo "Building docker client"
 
 cd $BUILD_DIR
