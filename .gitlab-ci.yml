@@ -34,7 +34,7 @@ build:
     expire_in: 1 week
   script:
     - "cd $CI_PROJECT_DIR"
-    - "echo password | sudo -SE make clean build"
+    - "echo password | sudo -SE make all"
   stage: build
   tags:
     - secdocker
@@ -42,7 +42,7 @@ build:
 TestUnitEngine:
   script:
     - "cd $CI_PROJECT_DIR"
-    - "echo password | sudo -SE make testunitengine"
+    - "echo password | sudo -SE make test"
   stage: test
   tags:
     - secdocker

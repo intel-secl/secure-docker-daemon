@@ -1,4 +1,4 @@
-VERSION := v1.0
+VERSION := 19.03.0
 GITCOMMIT := $(shell git describe --always)
 GITBRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 TIMESTAMP := $(shell date --iso=seconds)
