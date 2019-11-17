@@ -1,0 +1,64 @@
+--- 
+before_script: 
+  - "git config --global http.proxy \"http://proxy-us.intel.com:911\""
+  - "git config --global https.proxy \"http://proxy-us.intel.com:911\""
+  - "git config --global http.\"https://gitlab.devtools.intel.com\".proxy \"\""
+  - "git config --global url.\"https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com\".insteadOf \"https://gitlab.devtools.intel.com\""
+  - "mkdir -p ~/.ssh"
+  - "chmod 700 ~/.ssh"
+  - "ifconfig"
+#  - "cd $CI_PROJECT_DIR"
+
+stages: 
+  - build
+  - test
+
+variables: 
+  DOCKER_GRAPHDRIVER: secureoverlay2
+  GIT_CLEAN_FLAGS: none
+  HTTPS_PROXY: "http://proxy-us.intel.com:911"
+  HTTP_PROXY: "http://proxy-us.intel.com:911"
+  NO_PROXY: "127.0.0.1,localhost,0.0.0.0,reg-name.io,gitlab.devtools.intel.com"
+  http_proxy: "http://proxy-us.intel.com:911"
+  https_proxy: "http://proxy-us.intel.com:911"
+  no_proxy: "gitlab.devtools.intel.com,127.0.0.1,localhost,reg-name.io"
+
+cache:
+    paths:
+      - docker-ce/
+
+build:
+  artifacts:
+    paths:
+      - out/
+    expire_in: 1 week
+  script:
+    - "cd $CI_PROJECT_DIR"
+    - "echo password | sudo -SE make clean build"
+  stage: build
+  tags:
+    - secdocker
+
+TestUnitEngine:
+  script:
+    - "cd $CI_PROJECT_DIR"
+    - "echo password | sudo -SE make testunitengine"
+  stage: test
+  tags:
+    - secdocker
+  dependencies:
+    - build
+
+TestIntegrationEngine:
+  artifacts:
+    paths:
+      - docker-ce/components/engine/bundles/test-integration/test.log
+      - docker-ce/components/engine/bundles/test-integration/docker.log
+  script:
+    - "cd $CI_PROJECT_DIR"
+    - "echo password | sudo -SE make testintegrationengine"
+  stage: test
+  tags:
+    - secdocker
+  dependencies:
+    - build

@@ -57,6 +57,7 @@ const (
 	MAXKEYPOLL = 90
 )
 
+var ctx context.Context
 // This backend uses the overlay union filesystem for containers
 // with diff directories for each layer.
 
@@ -208,6 +209,7 @@ func init() {
 // If an overlay filesystem is not supported over an existing filesystem then error graphdriver.ErrIncompatibleFS is returned.
 func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	logrus.Debugf("secureoverlay2: Init called w. home: %s, options:%s, uidMaps: %v, gidMaps: %v", home, options, uidMaps, gidMaps)
+	ctx = context.WithValue(context.TODO(), "", "")
 	opts, err := parseOptions(options)
 	if err != nil {
 		return nil, err
@@ -441,6 +443,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 			logrus.Debugf("secureoverlay2: GetMetadata, adding (encoded) security meta-data %s", s)
 			metadata["security-meta-data"] = string(bytes)
 		} else {
+			ctx = context.WithValue(context.TODO(), "", "")
 			logrus.Debug("secureoverlay2: GetMetadata, security meta-data indicates unsecured layer, skip security meta data addition")
 		}
 	case os.IsNotExist(err):
@@ -1737,29 +1740,22 @@ func (s secureImgCryptOptions) save(metaDataFile string) error {
 //key will not be accessible from keyring after the timeout period.
 
 func getKeyFromKeyCache(keyHandle string) (string, string, error) {
-	//TODO Get timeout for Key in Workload agent KeyCache
-	//_,keyExpireTime := getenv()
-	// search for the key in keycache
-	out, err := exec.Command("wlagent", "get-key-from-keycache", keyHandle).CombinedOutput()
-	if err != nil {
-		return "", "", fmt.Errorf("Could not open user-session-key ring for key-handle %s (err=%v)", keyHandle, err)
-	}
-	wrappedKey := string(out)
-	wrappedKey = strings.TrimSuffix(wrappedKey, "\n")
-	wrappedKey = strings.TrimSuffix(wrappedKey, " ")
 
-	key, err := exec.Command("wlagent", "unwrap-key", wrappedKey).Output()
-	if err != nil {
-		return "", "", fmt.Errorf("Could not unwrap the key using tpm")
-	}
+        ctxkey := ctx.Value(keyHandle)
+        if(ctxkey == nil || ctxkey == ""){
+                key, err := exec.Command("wlagent", "fetch-key", keyHandle, "").Output()
+                if err != nil {
+                    return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
+                }
+                unwrappedKey := string(key)
+                unwrappedKey = string(unwrappedKey)
+                unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
+                unwrappedKey = strings.TrimSpace(unwrappedKey)
+                ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
+                return unwrappedKey, "", nil
+        }
+        return fmt.Sprintf("%v", ctx.Value(keyHandle)), "", nil
 
-	//TODO reset timeout after reading the key
-	unwrappedKey := string(key)
-	unwrappedKey = string(unwrappedKey)
-	unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
-	unwrappedKey = strings.TrimSpace(unwrappedKey)
-
-	return unwrappedKey, "", nil
 }
 
 // Interface to retrive encryption key for the layer, using layerid as key
