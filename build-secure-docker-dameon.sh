@@ -1,16 +1,12 @@
 #!/bin/bash
 
-DOCKER_CLI=`pwd`/docker-cli/
 GRAPHDRIVER=`pwd`/graphdriver/
 SECURE_OVERLAY_DIR=`pwd`/secureoverlay2/
 SECURE_OVERLAY_INTEGRATION=`pwd`/integration/
 DOCKER_BUILD=`pwd`/out/
 DEPS_DIR=`pwd`/vendor/
-DOCKER_CE=`pwd`/docker-ce/
-DOCKER_ENGINE=`pwd`/docker-engine/
+DOCKER_CE=`pwd`/docker-ce
 BUILD_DIR=`pwd`
-DOCKER_CE_ENGINE=$DOCKER_CE/components/engine/
-DOCKER_CE_CLI=$DOCKER_CE/components/cli/
 DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR=$DOCKER_CE_ENGINE/integration/secureoverlay/
 VERSION=19.03.0
 
@@ -29,7 +25,6 @@ fi
 echo "Applying diff for secureoverlay2 driver"
 git apply $BUILD_DIR/support-for-secure-overlay.diff
 
-cd $BUILD_DIR
 # In-place patches for CLI
 
 # Patches for Engine
@@ -52,18 +47,20 @@ mkdir -p $DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR && cp -f $SECURE_OVERLAY_IN
 
 echo "Building docker client"
 
+cd $BUILD_DIR
 
 # Build CLI
-#sudo chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
 make -C $DOCKER_CE_CLI -f docker.Makefile binary
+sudo chown -R `whoami`:`whoami` $DOCKER_CE_CLI/build
 if [ $? -ne 0 ];
 then
   echo "Error while building docker CLI, exiting"
   exit 1
 fi
 
-#sudo chown -R `whoami`:`whoami` $DOCKER_CE_ENGINE/bundles/binary-daemon
+# Build Daemon
 VERSION=${VERSION} make -C $DOCKER_CE_ENGINE binary
+sudo chown -R `whoami`:`whoami` $DOCKER_CE_ENGINE/bundles/binary-daemon
 
 if [ $? -ne 0 ];
 then
