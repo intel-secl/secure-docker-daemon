@@ -24,7 +24,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
+	"net"
+	"net/rpc"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
 
@@ -50,11 +51,17 @@ var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
 )
-
+type KeyInfo struct {
+	KeyID      string
+	Key        []byte
+	ImageID    string
+	ReturnCode bool
+}
 //the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
 //if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
 const (
 	MAXKEYPOLL = 90
+	rpcSocketFilePath = "/var/run/workload-agent/wlagent.sock"
 )
 
 var ctx context.Context
@@ -1743,11 +1750,27 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 
         ctxkey := ctx.Value(keyHandle)
         if(ctxkey == nil || ctxkey == ""){
-                key, err := exec.Command("wlagent", "fetch-key", keyHandle, "").Output()
+                conn, err := net.Dial("unix", rpcSocketFilePath)
+                if err != nil {
+                       logrus.Error("main:main() stop-vm: Failed to dial wlagent.sock, is wlagent running?")
+                }
+                client := rpc.NewClient(conn)
+                var outKey KeyInfo
+                var args = KeyInfo{
+                         KeyID:   keyHandle,
+                         ImageID: "",
+                }
+                err = client.Call("VirtualMachine.FetchKey", &args, &outKey)
+                if err != nil {
+                        logrus.Error("main:main() fetch-key: Client call failed")
+                        logrus.Tracef("%+v", err)
+                }
+                logrus.Info(outKey)
+
                 if err != nil {
                     return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
                 }
-                unwrappedKey := string(key)
+                unwrappedKey := string(outKey.Key)
                 unwrappedKey = string(unwrappedKey)
                 unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
                 unwrappedKey = strings.TrimSpace(unwrappedKey)
@@ -1768,6 +1791,7 @@ func getKey(keyFilePath, keyHandle string) (string, string, error) {
 		encryptContainerImage = true
 		logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
 		if keyFilePath != "" {
+
 			unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-i", keyFilePath).CombinedOutput()
 			if err != nil {
 				return "", "", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
