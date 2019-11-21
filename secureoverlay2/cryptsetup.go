@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"strings"
 	"io"
+	"io/ioutil"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
@@ -285,15 +286,33 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 		ht = params.HashType
 	}
 
+	tmpKeyFile, err := ioutil.TempFile("/tmp", "layerKey")
+	if err != nil {
+		return errors.New("error creating a temp key file")
+	}
+
+	defer os.Remove(tmpKeyFile.Name()) // clean up
+
+	if _, err := tmpKeyFile.Write([]byte(key)); err != nil {
+		return errors.New("error while writing key to a temp file")
+	}
+
+	if err := tmpKeyFile.Close(); err != nil {
+		return errors.New("error closing the temp key file")
+	}
+
+	keyPath := tmpKeyFile.Name()
+	
+
 	switch(luksCmd) {
 		case ConstLuksCmdFormat:
-			cmd = fmt.Sprintf("echo -n %s | cryptsetup -v -q luksFormat -c %s -h %s -s %s %s -",
-								key, c, ht, ks, dev)
+			cmd = fmt.Sprintf("cryptsetup -v -q luksFormat --key-file %s -c %s -h %s -s %s %s",
+								keyPath, c, ht, ks, dev)
 		case ConstLuksCmdOpen:
 			if rd {
-				cmd = fmt.Sprintf("echo -n %s | cryptsetup -v --readonly --type luks open %s %s", key, dev, nm)
+				cmd = fmt.Sprintf("cryptsetup -v --readonly --type luks open --key-file %s %s %s", keyPath, dev, nm)
 			} else {
-				cmd = fmt.Sprintf("echo -n %s | cryptsetup -v --type luks open %s %s", key, dev, nm)
+				cmd = fmt.Sprintf("cryptsetup -v --type luks open --key-file %s %s %s", keyPath, dev, nm)
 			}
 		case ConstLuksCmdClose:
 			cmd = fmt.Sprintf("cryptsetup -v --type luks close %s", nm)
