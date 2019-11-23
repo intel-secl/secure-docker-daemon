@@ -9,6 +9,7 @@ package secureoverlay2
 
 import (
 	"errors"
+	"encoding/base64"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -288,12 +289,17 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 
 	tmpKeyFile, err := ioutil.TempFile("/tmp", "layerKey")
 	if err != nil {
-		return errors.New("error creating a temp key file")
+		return errors.New("cryptsetup: Error creating a temp key file")
 	}
 
 	defer os.Remove(tmpKeyFile.Name()) // clean up
+	keyByte, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+                return errors.New("cryptsetup: Error while decoding key from  base64 string into bytes")
+        }
+	
 
-	if _, err := tmpKeyFile.Write([]byte(key)); err != nil {
+	if _, err := tmpKeyFile.Write(keyByte); err != nil {
 		return errors.New("error while writing key to a temp file")
 	}
 

@@ -9,8 +9,10 @@ package secureoverlay2 // import "github.com/docker/docker/daemon/graphdriver/se
 
 import (
 	"bufio"
+	
 	"context"
 	"encoding/json"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -1762,21 +1764,17 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
                 }
                 err = client.Call("VirtualMachine.FetchKey", &args, &outKey)
                 if err != nil {
-                        logrus.Error(""secureoverlay2: rpc call workload-agent fetch-key: Client call failed")
+                        logrus.Error("secureoverlay2: rpc call workload-agent fetch-key: Client call failed")
                         logrus.Tracef("%+v", err)
                 }
-                logrus.Info(outKey)
 
                 if err != nil {
                     return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
                 }
-                unwrappedKey := string(outKey.Key)
-                unwrappedKey = string(unwrappedKey)
-                unwrappedKey = strings.TrimSuffix(unwrappedKey, "\n")
-                unwrappedKey = strings.TrimSpace(unwrappedKey)
+                unwrappedKey := base64.StdEncoding.EncodeToString(outKey.Key)
                 ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
                 return unwrappedKey, "", nil
-        }
+        }	
         return fmt.Sprintf("%v", ctx.Value(keyHandle)), "", nil
 
 }
@@ -1798,7 +1796,6 @@ func getKey(keyFilePath, keyHandle string) (string, string, error) {
 			}
 			key := string(unwrappedKey)
 			key = strings.TrimSuffix(key, "\n")
-			key = strings.TrimSpace(key)
 			keyInfo := strings.Split(keyFilePath, "_")
                         rKey, rKeyInfo, rErr = key, keyInfo[1], nil
 		} else {
