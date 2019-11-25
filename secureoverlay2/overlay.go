@@ -1754,7 +1754,7 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
         if(ctxkey == nil || ctxkey == ""){
                 conn, err := net.Dial("unix", RPCSocketFilePath)
                 if err != nil {
-                       logrus.Error("secureoverlay2: Failed to dial workload-agent wlagent.sock")
+		       return "", "", fmt.Errorf("secureoverlay2: Failed to dial workload-agent wlagent.sock")
                 }
                 client := rpc.NewClient(conn)
                 var outKey KeyInfo
@@ -1764,8 +1764,8 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
                 }
                 err = client.Call("VirtualMachine.FetchKey", &args, &outKey)
                 if err != nil {
-                        logrus.Error("secureoverlay2: rpc call workload-agent fetch-key: Client call failed")
                         logrus.Tracef("%+v", err)
+			return "", "", fmt.Errorf("secureoverlay2: rpc call workload-agent fetch-key: Client call failed")
                 }
 
                 if err != nil {
