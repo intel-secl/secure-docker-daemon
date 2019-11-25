@@ -63,7 +63,7 @@ type KeyInfo struct {
 //if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
 const (
 	MAXKEYPOLL = 90
-	rpcSocketFilePath = "/var/run/workload-agent/wlagent.sock"
+	RPCSocketFilePath = "/var/run/workload-agent/wlagent.sock"
 )
 
 var ctx context.Context
@@ -1752,7 +1752,7 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 
         ctxkey := ctx.Value(keyHandle)
         if(ctxkey == nil || ctxkey == ""){
-                conn, err := net.Dial("unix", rpcSocketFilePath)
+                conn, err := net.Dial("unix", RPCSocketFilePath)
                 if err != nil {
                        logrus.Error("secureoverlay2: Failed to dial workload-agent wlagent.sock")
                 }
