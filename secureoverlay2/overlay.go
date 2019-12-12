@@ -56,7 +56,6 @@ var (
 type KeyInfo struct {
 	KeyID      string
 	Key        []byte
-	ImageID    string
 	ReturnCode bool
 }
 //the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
@@ -1760,7 +1759,6 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
                 var outKey KeyInfo
                 var args = KeyInfo{
                          KeyID:   keyHandle,
-                         ImageID: "",
                 }
                 err = client.Call("VirtualMachine.FetchKey", &args, &outKey)
                 if err != nil {
