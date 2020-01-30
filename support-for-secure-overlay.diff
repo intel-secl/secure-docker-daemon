@@ -1,24 +1,24 @@
 diff --git a/components/cli/cli/command/image/build.go b/components/cli/cli/command/image/build.go
-index ef50a29..edb54ffb 100644
+index eeb8b3eb94..78a6af7c6e 100644
 --- a/components/cli/cli/command/image/build.go
 +++ b/components/cli/cli/command/image/build.go
 @@ -66,6 +66,7 @@ type buildOptions struct {
  	cacheFrom      []string
  	compress       bool
  	securityOpt    []string
-+	imgCryptOpt	[]string
++	imgCryptOpt    []string
  	networkMode    string
  	squash         bool
  	target         string
-@@ -142,6 +143,7 @@ func NewBuildCommand(dockerCli command.Cli) *cobra.Command {
+@@ -154,6 +155,7 @@ func NewBuildCommand(dockerCli command.Cli) *cobra.Command {
  	flags.SetAnnotation("compress", "no-buildkit", nil)
- 
  	flags.StringSliceVar(&options.securityOpt, "security-opt", []string{}, "Security options")
+ 	flags.SetAnnotation("security-opt", "no-buildkit", nil)
 +	flags.StringSliceVar(&options.imgCryptOpt, "imgcrypt-opt", []string{}, "Image Encryption options for SecureOverlay storage driver")
  	flags.StringVar(&options.networkMode, "network", "default", "Set the networking mode for the RUN instructions during build")
  	flags.SetAnnotation("network", "version", []string{"1.25"})
  	flags.Var(&options.extraHosts, "add-host", "Add a custom host-to-IP mapping (host:ip)")
-@@ -647,6 +649,8 @@ func imageBuildOptions(dockerCli command.Cli, options buildOptions) types.ImageB
+@@ -659,6 +661,8 @@ func imageBuildOptions(dockerCli command.Cli, options buildOptions) types.ImageB
  		Labels:         opts.ConvertKVStringsToMap(options.labels.GetAll()),
  		CacheFrom:      options.cacheFrom,
  		SecurityOpt:    options.securityOpt,
