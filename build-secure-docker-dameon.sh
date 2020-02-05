@@ -12,9 +12,7 @@ VERSION=19.03.0
 
 git clone https://github.com/docker/docker-ce.git
 cd $DOCKER_CE
-git checkout 19.03
-# reset to last known good docker build
-git reset --hard a5b12065103ee0b9f4fb2d22c6f422954c65aa7f
+git checkout v19.03.5
 
 if [ $? -ne 0 ];
 then
