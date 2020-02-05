@@ -28,5 +28,4 @@ testintegrationengine:
 
 .PHONY: clean
 clean:
-	rm -rf out/
-	sudo rm -rf docker-ce/
+	sudo rm -rf out/ docker-ce/

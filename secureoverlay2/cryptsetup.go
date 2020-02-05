@@ -312,16 +312,16 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 
 	switch(luksCmd) {
 		case ConstLuksCmdFormat:
-			cmd = fmt.Sprintf("cryptsetup -v -q luksFormat --key-file %s -c %s -h %s -s %s %s",
+			cmd = fmt.Sprintf("cryptsetup -v -q luksFormat --type luks1 --key-file %s -c %s -h %s -s %s %s",
 								keyPath, c, ht, ks, dev)
 		case ConstLuksCmdOpen:
 			if rd {
-				cmd = fmt.Sprintf("cryptsetup -v --readonly --type luks open --key-file %s %s %s", keyPath, dev, nm)
+				cmd = fmt.Sprintf("cryptsetup -v --readonly --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
 			} else {
-				cmd = fmt.Sprintf("cryptsetup -v --type luks open --key-file %s %s %s", keyPath, dev, nm)
+				cmd = fmt.Sprintf("cryptsetup -v --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
 			}
 		case ConstLuksCmdClose:
-			cmd = fmt.Sprintf("cryptsetup -v --type luks close %s", nm)
+			cmd = fmt.Sprintf("cryptsetup -v --type luks1 close %s", nm)
 
 		default:
 			return fmt.Errorf("invalid luks command: %s", luksCmd)
