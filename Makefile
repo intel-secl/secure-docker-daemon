@@ -1,4 +1,4 @@
-VERSION := 19.03.0
+VERSION := 19.03.5
 GITCOMMIT := $(shell git describe --always)
 GITBRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 TIMESTAMP := $(shell date --iso=seconds)
@@ -15,18 +15,17 @@ installer:
 	cp -f $(DOCKER_CE_CLI)/build/docker-linux-amd64 $(DOCKER_BUILD)/docker
 	cp -f $(DOCKER_CE_ENGINE)/bundles/binary-daemon/dockerd-${VERSION} $(DOCKER_BUILD)/dockerd-ce
 
-.PHONY: test
-	 DOCKERDEBUG="y" DOCKER_GRAPHDRIVER="secureoverlay2" make -C ${DOCKER_CE_ENGINE} test
+unittest:
+	 DOCKER_EXPERIMENTAL="0" DOCKER_STORAGE_OPTS="overlay2.override_kernel_check=1" DOCKERDEBUG="y" DOCKER_GRAPHDRIVER="secureoverlay2" make -C ${DOCKER_CE_ENGINE} test-unit
 
 all: clean installer
 
 .PHONY: testintegrationengine
 testintegrationengine:
-	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestBuild' make -C ${DOCKER_CE_ENGINE} test-integration && \
-	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestRun' make -C ${DOCKER_CE_ENGINE} test-integration && \
-	DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestSecureOverlay' make -C ${DOCKER_CE_ENGINE} test-integration
+	 DOCKER_EXPERIMENTAL="0" DOCKER_STORAGE_OPTS="overlay2.override_kernel_check=1" DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestBuild' make -C ${DOCKER_CE_ENGINE} test-integration && \
+	 DOCKER_EXPERIMENTAL="0" DOCKER_STORAGE_OPTS="overlay2.override_kernel_check=1" DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestRun' make -C ${DOCKER_CE_ENGINE} test-integration && \
+	 DOCKER_EXPERIMENTAL="0" DOCKER_STORAGE_OPTS="overlay2.override_kernel_check=1" DOCKER_GRAPHDRIVER="secureoverlay2" TESTFLAGS='-test.run TestSecureOverlay' make -C ${DOCKER_CE_ENGINE} test-integration
 
 .PHONY: clean
 clean:
-	rm -rf out/
-	sudo rm -rf docker-ce/
+	sudo rm -rf out/ docker-ce/

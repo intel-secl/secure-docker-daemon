@@ -1,21 +1,10 @@
---- 
-before_script: 
-  - "git config --global http.proxy \"http://proxy-us.intel.com:911\""
-  - "git config --global https.proxy \"http://proxy-us.intel.com:911\""
-  - "git config --global http.\"https://gitlab.devtools.intel.com\".proxy \"\""
-  - "git config --global url.\"https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com\".insteadOf \"https://gitlab.devtools.intel.com\""
-  - "mkdir -p ~/.ssh"
-  - "chmod 700 ~/.ssh"
-  - "ifconfig"
-#  - "cd $CI_PROJECT_DIR"
-
-stages: 
+---
+stages:
   - build
   - test
 
-variables: 
+variables:
   DOCKER_GRAPHDRIVER: secureoverlay2
-  GIT_CLEAN_FLAGS: none
   HTTPS_PROXY: "http://proxy-us.intel.com:911"
   HTTP_PROXY: "http://proxy-us.intel.com:911"
   NO_PROXY: "127.0.0.1,localhost,0.0.0.0,reg-name.io,gitlab.devtools.intel.com"
@@ -24,8 +13,8 @@ variables:
   no_proxy: "gitlab.devtools.intel.com,127.0.0.1,localhost,reg-name.io"
 
 cache:
-    paths:
-      - docker-ce/
+  paths:
+    - docker-ce/
 
 build:
   artifacts:
@@ -34,29 +23,19 @@ build:
     expire_in: 1 week
   script:
     - "cd $CI_PROJECT_DIR"
-    - "echo password | sudo -SE make all"
+    - "make all"
   stage: build
   tags:
     - secdocker
 
-TestUnitEngine:
-  script:
-    - "cd $CI_PROJECT_DIR"
-    - "echo password | sudo -SE make test"
-  stage: test
-  tags:
-    - secdocker
-  dependencies:
-    - build
-
-TestIntegrationEngine:
+TestEngine:
   artifacts:
     paths:
       - docker-ce/components/engine/bundles/test-integration/test.log
       - docker-ce/components/engine/bundles/test-integration/docker.log
   script:
-    - "cd $CI_PROJECT_DIR"
-    - "echo password | sudo -SE make testintegrationengine"
+    - "make unittest"
+    - "make testintegrationengine"
   stage: test
   tags:
     - secdocker
