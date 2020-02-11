@@ -8,7 +8,7 @@ DEPS_DIR=`pwd`/vendor/
 DOCKER_CE=`pwd`/docker-ce
 BUILD_DIR=`pwd`
 DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR=$DOCKER_CE_ENGINE/integration/secureoverlay/
-VERSION=19.03.0
+VERSION=19.03.5
 
 git clone https://github.com/docker/docker-ce.git
 cd $DOCKER_CE
