@@ -1769,6 +1769,9 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
                 if err != nil {
                     return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
                 }
+		if len(outKey.Key) == 0 {
+			return "", "", fmt.Errorf("Empty key received from workload-agent")
+		}
                 unwrappedKey := base64.StdEncoding.EncodeToString(outKey.Key)
                 ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
                 return unwrappedKey, "", nil
@@ -1791,6 +1794,9 @@ func getKey(keyFilePath, keyHandle string) (string, string, error) {
 			unwrappedKey, err := exec.Command("wpm", "unwrap-key", "-i", keyFilePath).CombinedOutput()
 			if err != nil {
 				return "", "", fmt.Errorf("secureoverlay2: Could not get unwrapped key from the wrapped key %v", err)
+			}
+			if len(unwrappedKey) == 0 {
+				return "", "", fmt.Errorf("secureoverlay2: unwrapped key is empty")
 			}
 			key := string(unwrappedKey)
 			key = strings.TrimSuffix(key, "\n")
