@@ -58,8 +58,8 @@ type KeyInfo struct {
 	Key        []byte
 	ReturnCode bool
 }
-//the key will be polled from kernel keyring maximum 90 times till get the key from kernel keying.
-//if the count reaches 90 and not able to get key from kernel keyring the error will be thrown
+//the key will be polled from wlagent fetch-key rpc calls maximum 90 times till get the key from wlagent fetch-key rpc call.
+//if the count reaches 90 and not able to get key from wlagent fetch-key the error will be thrown
 const (
 	MAXKEYPOLL = 90
 	RPCSocketFilePath = "/var/run/workload-agent/wlagent.sock"
@@ -1755,7 +1755,8 @@ func getKeyFromKeyCache(keyHandle string) (string, string, error) {
                 if err != nil {
 		       return "", "", fmt.Errorf("secureoverlay2: Failed to dial workload-agent wlagent.sock")
                 }
-                client := rpc.NewClient(conn)
+		client := rpc.NewClient(conn)
+		defer client.Close()
                 var outKey KeyInfo
                 var args = KeyInfo{
                          KeyID:   keyHandle,
