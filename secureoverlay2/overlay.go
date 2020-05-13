@@ -66,6 +66,7 @@ const (
 )
 
 var ctx context.Context
+var mountMtx sync.Mutex
 // This backend uses the overlay union filesystem for containers
 // with diff directories for each layer.
 
@@ -784,7 +785,9 @@ func (d *Driver) umountAllLowers(id string) error {
 // mount given layer on the diff path
 func (d *Driver) mountLayersFor(id string) (err error) {
 	logrus.Debugf("secureoverlay2: mountLayersFor called w. id: %s", id)
-
+	//Adding mutex lock to make sure the layers are mounted in right sequence when there are simulatneous requests from multiple instances
+	mountMtx.Lock()
+	defer mountMtx.Unlock()
 	// paths
 	source := d.getSecureDiffPath(id, "", true)
 	target := d.getDiffPath(id)
