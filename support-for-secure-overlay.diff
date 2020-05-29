@@ -1,12 +1,12 @@
 diff --git a/components/cli/VERSION b/components/cli/VERSION
-index 8ff4639..f8d11db 100644
+index 8ff4639f4e..a01876499e 100644
 --- a/components/cli/VERSION
 +++ b/components/cli/VERSION
 @@ -1 +1 @@
 -19.03.0-dev
 +19.03.5
 diff --git a/components/cli/cli/command/image/build.go b/components/cli/cli/command/image/build.go
-index ef50a29..edb54ffb 100644
+index ef50a29179..edb54ffb47 100644
 --- a/components/cli/cli/command/image/build.go
 +++ b/components/cli/cli/command/image/build.go
 @@ -66,6 +66,7 @@ type buildOptions struct {
@@ -35,7 +35,7 @@ index ef50a29..edb54ffb 100644
  		Squash:         options.squash,
  		ExtraHosts:     options.extraHosts.GetAll(),
 diff --git a/components/cli/vendor/github.com/docker/docker/api/types/client.go b/components/cli/vendor/github.com/docker/docker/api/types/client.go
-index 4b9f502..9b5da4a 100644
+index 4b9f50282b..9b5da4a120 100644
 --- a/components/cli/vendor/github.com/docker/docker/api/types/client.go
 +++ b/components/cli/vendor/github.com/docker/docker/api/types/client.go
 @@ -177,6 +177,8 @@ type ImageBuildOptions struct {
@@ -48,7 +48,7 @@ index 4b9f502..9b5da4a 100644
  	Target      string
  	SessionID   string
 diff --git a/components/cli/vendor/github.com/docker/docker/api/types/container/host_config.go b/components/cli/vendor/github.com/docker/docker/api/types/container/host_config.go
-index c3de3d9..6782a33 100644
+index c3de3d976a..6782a33fd2 100644
 --- a/components/cli/vendor/github.com/docker/docker/api/types/container/host_config.go
 +++ b/components/cli/vendor/github.com/docker/docker/api/types/container/host_config.go
 @@ -396,6 +396,7 @@ type HostConfig struct {
@@ -60,7 +60,7 @@ index c3de3d9..6782a33 100644
  	UTSMode         UTSMode           // UTS namespace to use for the container
  	UsernsMode      UsernsMode        // The user namespace to use for the container
 diff --git a/components/cli/vendor/github.com/docker/docker/client/image_build.go b/components/cli/vendor/github.com/docker/docker/client/image_build.go
-index 8fcf995..42cf028 100644
+index 8fcf995036..42cf028bf5 100644
 --- a/components/cli/vendor/github.com/docker/docker/client/image_build.go
 +++ b/components/cli/vendor/github.com/docker/docker/client/image_build.go
 @@ -116,6 +116,13 @@ func (cli *Client) imageBuildOptionsToQuery(options types.ImageBuildOptions) (ur
@@ -78,7 +78,7 @@ index 8fcf995..42cf028 100644
  	if err != nil {
  		return query, err
 diff --git a/components/engine/Dockerfile b/components/engine/Dockerfile
-index 766db8a..80e80ff 100644
+index 766db8a1b6..80e80ffff0 100644
 --- a/components/engine/Dockerfile
 +++ b/components/engine/Dockerfile
 @@ -29,6 +29,8 @@ ARG GO_VERSION=1.12.12
@@ -99,7 +99,7 @@ index 766db8a..80e80ff 100644
  # Upload docker source
  COPY . /go/src/github.com/docker/docker
 diff --git a/components/engine/api/server/router/build/build_routes.go b/components/engine/api/server/router/build/build_routes.go
-index 57d9fc8..f9a8ca8 100644
+index 57d9fc8c46..f9a8ca81ef 100644
 --- a/components/engine/api/server/router/build/build_routes.go
 +++ b/components/engine/api/server/router/build/build_routes.go
 @@ -132,6 +132,15 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
@@ -127,7 +127,7 @@ index 57d9fc8..f9a8ca8 100644
  		return errdefs.InvalidParameter(errors.New("squash is only supported with experimental mode"))
  	}
 diff --git a/components/engine/api/types/client.go b/components/engine/api/types/client.go
-index 4b9f502..9b5da4a 100644
+index 4b9f50282b..9b5da4a120 100644
 --- a/components/engine/api/types/client.go
 +++ b/components/engine/api/types/client.go
 @@ -177,6 +177,8 @@ type ImageBuildOptions struct {
@@ -140,7 +140,7 @@ index 4b9f502..9b5da4a 100644
  	Target      string
  	SessionID   string
 diff --git a/components/engine/api/types/container/host_config.go b/components/engine/api/types/container/host_config.go
-index c3de3d9..e729488 100644
+index c3de3d976a..e729488265 100644
 --- a/components/engine/api/types/container/host_config.go
 +++ b/components/engine/api/types/container/host_config.go
 @@ -396,6 +396,7 @@ type HostConfig struct {
@@ -152,7 +152,7 @@ index c3de3d9..e729488 100644
  	UTSMode         UTSMode           // UTS namespace to use for the container
  	UsernsMode      UsernsMode        // The user namespace to use for the container
 diff --git a/components/engine/builder/builder.go b/components/engine/builder/builder.go
-index cf4d737..87c7063 100644
+index cf4d737e2b..87c706394f 100644
 --- a/components/engine/builder/builder.go
 +++ b/components/engine/builder/builder.go
 @@ -104,6 +104,7 @@ type Image interface {
@@ -164,7 +164,7 @@ index cf4d737..87c7063 100644
  }
  
 diff --git a/components/engine/builder/dockerfile/imagecontext.go b/components/engine/builder/dockerfile/imagecontext.go
-index 08cb396..f61bc28 100644
+index 08cb396a2b..f61bc282d0 100644
 --- a/components/engine/builder/dockerfile/imagecontext.go
 +++ b/components/engine/builder/dockerfile/imagecontext.go
 @@ -6,6 +6,7 @@ import (
@@ -187,7 +187,7 @@ index 08cb396..f61bc28 100644
  	return im.image.ImageID()
  }
 diff --git a/components/engine/builder/dockerfile/internals.go b/components/engine/builder/dockerfile/internals.go
-index fa35c4f..ed4a0fa 100644
+index fa35c4f3c0..ed4a0fafc0 100644
 --- a/components/engine/builder/dockerfile/internals.go
 +++ b/components/engine/builder/dockerfile/internals.go
 @@ -19,6 +19,7 @@ import (
@@ -254,7 +254,7 @@ index fa35c4f..ed4a0fa 100644
  
  	// For WCOW, the default of 20GB hard-coded in the platform
 diff --git a/components/engine/builder/dockerfile/mockbackend_test.go b/components/engine/builder/dockerfile/mockbackend_test.go
-index d4526ea..9025fbe 100644
+index d4526eafad..9025fbe94d 100644
 --- a/components/engine/builder/dockerfile/mockbackend_test.go
 +++ b/components/engine/builder/dockerfile/mockbackend_test.go
 @@ -146,3 +146,7 @@ func (l *mockRWLayer) Commit() (builder.ROLayer, error) {
@@ -266,7 +266,7 @@ index d4526ea..9025fbe 100644
 +        return &mockRWLayer{}, nil
 +}
 diff --git a/components/engine/daemon/create.go b/components/engine/daemon/create.go
-index f9db0ca..b9c847f 100644
+index f9db0ca834..b9c847fb65 100644
 --- a/components/engine/daemon/create.go
 +++ b/components/engine/daemon/create.go
 @@ -169,6 +169,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
@@ -278,7 +278,7 @@ index f9db0ca..b9c847f 100644
  	// Fixes: https://github.com/moby/moby/issues/34074 and
  	// https://github.com/docker/for-win/issues/999.
 diff --git a/components/engine/daemon/graphdriver/driver.go b/components/engine/daemon/graphdriver/driver.go
-index 44434f7..9d8e5be 100644
+index 44434f7dcd..9d8e5be71e 100644
 --- a/components/engine/daemon/graphdriver/driver.go
 +++ b/components/engine/daemon/graphdriver/driver.go
 @@ -34,6 +34,7 @@ var (
@@ -290,7 +290,7 @@ index 44434f7..9d8e5be 100644
  
  // InitFunc initializes the storage driver.
 diff --git a/components/engine/daemon/graphdriver/driver_linux.go b/components/engine/daemon/graphdriver/driver_linux.go
-index 61c6b24..2f6c319 100644
+index 61c6b24a9c..2f6c31974d 100644
 --- a/components/engine/daemon/graphdriver/driver_linux.go
 +++ b/components/engine/daemon/graphdriver/driver_linux.go
 @@ -48,7 +48,7 @@ const (
@@ -303,7 +303,7 @@ index 61c6b24..2f6c319 100644
  	// FsNames maps filesystem id to name of the filesystem.
  	FsNames = map[FsMagic]string{
 diff --git a/components/engine/daemon/images/image_builder.go b/components/engine/daemon/images/image_builder.go
-index cdf951c..dc48f7b 100644
+index cdf951c6f5..dc48f7b66d 100644
 --- a/components/engine/daemon/images/image_builder.go
 +++ b/components/engine/daemon/images/image_builder.go
 @@ -17,6 +17,7 @@ import (
@@ -359,7 +359,7 @@ index cdf951c..dc48f7b 100644
  	if err != nil {
  		return nil, err
 diff --git a/components/engine/daemon/images/service.go b/components/engine/daemon/images/service.go
-index e8df5cb..98b9bab 100644
+index e8df5cb649..98b9babc67 100644
 --- a/components/engine/daemon/images/service.go
 +++ b/components/engine/daemon/images/service.go
 @@ -126,6 +126,7 @@ func (i *ImageService) CreateLayer(container *container.Container, initFunc laye
@@ -370,11 +370,34 @@ index e8df5cb..98b9bab 100644
  	}
  
  	// Indexing by OS is safe here as validation of OS has already been performed in create() (the only
+diff --git a/components/engine/hack/dockerfile/install/gotestsum.installer b/components/engine/hack/dockerfile/install/gotestsum.installer
+index 032f46f2fe..1214a9e9cd 100755
+--- a/components/engine/hack/dockerfile/install/gotestsum.installer
++++ b/components/engine/hack/dockerfile/install/gotestsum.installer
+@@ -1,11 +1,11 @@
+ #!/bin/sh
+ 
+-GOTESTSUM_COMMIT='v0.3.5'
++: ${GOTESTSUM_COMMIT:=v0.3.5}
+ 
+-install_gotestsum() {
+-	echo "Installing gotestsum version $GOTESTSUM_COMMIT"
+-	go get -d gotest.tools/gotestsum
+-	cd "$GOPATH/src/gotest.tools/gotestsum"
+-	git checkout -q "$GOTESTSUM_COMMIT"
++install_gotestsum() (
++	set -e
++	export GO111MODULE=on
++	go get -d "gotest.tools/gotestsum@${GOTESTSUM_COMMIT}"
+ 	go build -buildmode=pie -o "${PREFIX}/gotestsum" 'gotest.tools/gotestsum'
+-}
++
++)
 diff --git a/components/engine/integration/build/build_session_test.go b/components/engine/integration/build/build_session_test.go
-index 578ea21..8bc2246 100644
+index 578ea2102c..6d33f7a52a 100644
 --- a/components/engine/integration/build/build_session_test.go
 +++ b/components/engine/integration/build/build_session_test.go
-@@ -78,7 +76,8 @@ func TestBuildWithSession(t *testing.T) {
+@@ -78,7 +78,8 @@ func TestBuildWithSession(t *testing.T) {
  	outBytes, err := request.ReadBody(body)
  	assert.NilError(t, err)
  	assert.Check(t, is.Contains(string(outBytes), "Successfully built"))
@@ -385,7 +408,7 @@ index 578ea21..8bc2246 100644
  	_, err = client.BuildCachePrune(context.TODO(), types.BuildCachePruneOptions{All: true})
  	assert.Check(t, err)
 diff --git a/components/engine/integration/network/network_test.go b/components/engine/integration/network/network_test.go
-index b8c9cc4..d3da45b 100644
+index b8c9cc43f8..d3da45ba89 100644
 --- a/components/engine/integration/network/network_test.go
 +++ b/components/engine/integration/network/network_test.go
 @@ -23,7 +23,7 @@ func TestRunContainerWithBridgeNone(t *testing.T) {
@@ -398,7 +421,7 @@ index b8c9cc4..d3da45b 100644
  
  	c := d.NewClientT(t)
 diff --git a/components/engine/layer/layer.go b/components/engine/layer/layer.go
-index d0c7fa8..524e24e 100644
+index d0c7fa8608..524e24e62f 100644
 --- a/components/engine/layer/layer.go
 +++ b/components/engine/layer/layer.go
 @@ -175,6 +175,7 @@ type CreateRWLayerOpts struct {
@@ -410,7 +433,7 @@ index d0c7fa8..524e24e 100644
  
  // Store represents a backend for managing both
 diff --git a/components/engine/layer/layer_store.go b/components/engine/layer/layer_store.go
-index 81730e9..0357ca4 100644
+index 81730e9d92..0357ca46eb 100644
 --- a/components/engine/layer/layer_store.go
 +++ b/components/engine/layer/layer_store.go
 @@ -488,6 +488,7 @@ func (ls *layerStore) Release(l Layer) ([]Metadata, error) {
