@@ -9,27 +9,28 @@ package secureoverlay2 // import "github.com/docker/docker/daemon/graphdriver/se
 
 import (
 	"bufio"
-	
+
 	"context"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"github.com/vbatts/tar-split/tar/storage"
 	"io"
 	"io/ioutil"
+	"net"
+	"net/rpc"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-	"net"
-	"net/rpc"
-	"github.com/sirupsen/logrus"
-	"github.com/vbatts/tar-split/tar/storage"
 
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/daemon/graphdriver/overlayutils"
@@ -44,14 +45,27 @@ import (
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/parsers/kernel"
-	units "github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"golang.org/x/sys/unix"
 )
 
+const (
+	// Binary
+
+	KiB = 1024
+	MiB = 1024 * KiB
+	GiB = 1024 * MiB
+	TiB = 1024 * GiB
+	PiB = 1024 * TiB
+)
+
+type unitMap map[string]int64
+
 var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
+	binaryMap  = unitMap{"k": KiB, "m": MiB, "g": GiB, "t": TiB, "p": PiB}
+	sizeRegex  = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[iI]?[bB]?$`)
 )
 type KeyInfo struct {
 	KeyID      string
@@ -605,7 +619,7 @@ func (d *Driver) parseImgCryptOpt(imgCryptOpt map[string]string, opts *secureImg
 		lcKey := strings.ToLower(key)
 		switch lcKey {
 		case "size":
-			size, e := units.RAMInBytes(val)
+			size, e := RAMInBytes(val)
 			if e != nil {
 				return e
 			}
@@ -2013,5 +2027,33 @@ func (d Driver) createSecureDiffDir(id, parent string) error {
 //   as usually the dm-crypt protected filesystem will be mounted on normal "diff" directory
 func (d Driver) getSecureCryptMntPath(id string) string {
 	return path.Join(d.dir(id), constSecureBaseDirName, constSecureCryptMntDirName)
+}
+
+// RAMInBytes parses a human-readable string representing an amount of RAM
+// in bytes, kibibytes, mebibytes, gibibytes, or tebibytes and
+// returns the number of bytes, or -1 if the string is unparseable.
+// Units are case-insensitive, and the 'b' suffix is optional.
+func RAMInBytes(size string) (int64, error) {
+	return parseSize(size, binaryMap)
+}
+
+// Parses the human-readable size string into the amount it represents.
+func parseSize(sizeStr string, uMap unitMap) (int64, error) {
+	matches := sizeRegex.FindStringSubmatch(sizeStr)
+	if len(matches) != 4 {
+		return -1, fmt.Errorf("invalid size: '%s'", sizeStr)
+	}
+
+	size, err := strconv.ParseFloat(matches[1], 64)
+	if err != nil {
+		return -1, err
+	}
+
+	unitPrefix := strings.ToLower(matches[3])
+	if mul, ok := uMap[unitPrefix]; ok {
+		size *= float64(mul)
+	}
+
+	return int64(size), nil
 }
 
