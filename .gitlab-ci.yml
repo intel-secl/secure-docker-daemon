@@ -1,7 +1,6 @@
 ---
 stages:
-  - build
-  - test
+  - buildtest
 
 variables:
   DOCKER_GRAPHDRIVER: secureoverlay2
@@ -12,32 +11,18 @@ variables:
   https_proxy: "${HTTPS_PROXY}"
   no_proxy: "${NO_PROXY}"
 
-cache:
-  paths:
-    - docker-ce/
-
-build:
+buildtest:
   artifacts:
     paths:
       - out/
+      - docker-ce/components/engine/bundles/test-integration/test.log
+      - docker-ce/components/engine/bundles/test-integration/docker.log
     expire_in: 1 week
   script:
     - "cd $CI_PROJECT_DIR"
     - "make all"
-  stage: build
-  tags:
-    - secdocker
-
-TestEngine:
-  artifacts:
-    paths:
-      - docker-ce/components/engine/bundles/test-integration/test.log
-      - docker-ce/components/engine/bundles/test-integration/docker.log
-  script:
     - "make unittest"
     - "make testintegrationengine"
-  stage: test
+  stage: buildtest
   tags:
     - secdocker
-  dependencies:
-    - build
