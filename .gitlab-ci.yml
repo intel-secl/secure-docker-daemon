@@ -22,7 +22,6 @@ buildtest:
     - "cd $CI_PROJECT_DIR"
     - "make all"
     - "make unittest"
-    - "make testintegrationengine"
   stage: buildtest
   tags:
     - secdocker
