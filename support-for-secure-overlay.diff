@@ -1,31 +1,31 @@
 diff --git a/components/cli/VERSION b/components/cli/VERSION
-index 8ff4639f4e..a01876499e 100644
+index 8ff4639f4e..d3dc2dc381 100644
 --- a/components/cli/VERSION
 +++ b/components/cli/VERSION
 @@ -1 +1 @@
 -19.03.0-dev
-+19.03.5
++19.03.13
 diff --git a/components/cli/cli/command/image/build.go b/components/cli/cli/command/image/build.go
-index ef50a29179..edb54ffb47 100644
+index 528137cb80..277a46517d 100644
 --- a/components/cli/cli/command/image/build.go
 +++ b/components/cli/cli/command/image/build.go
 @@ -66,6 +66,7 @@ type buildOptions struct {
  	cacheFrom      []string
  	compress       bool
  	securityOpt    []string
-+	imgCryptOpt	[]string
++	imgCryptOpt     []string
  	networkMode    string
  	squash         bool
  	target         string
-@@ -142,6 +143,7 @@ func NewBuildCommand(dockerCli command.Cli) *cobra.Command {
+@@ -172,6 +173,7 @@ func NewBuildCommand(dockerCli command.Cli) *cobra.Command {
+ 	flags.BoolVar(&options.compress, "compress", false, "Compress the build context using gzip")
  	flags.SetAnnotation("compress", "no-buildkit", nil)
- 
  	flags.StringSliceVar(&options.securityOpt, "security-opt", []string{}, "Security options")
 +	flags.StringSliceVar(&options.imgCryptOpt, "imgcrypt-opt", []string{}, "Image Encryption options for SecureOverlay storage driver")
+ 	flags.SetAnnotation("security-opt", "no-buildkit", nil)
  	flags.StringVar(&options.networkMode, "network", "default", "Set the networking mode for the RUN instructions during build")
  	flags.SetAnnotation("network", "version", []string{"1.25"})
- 	flags.Var(&options.extraHosts, "add-host", "Add a custom host-to-IP mapping (host:ip)")
-@@ -647,6 +649,8 @@ func imageBuildOptions(dockerCli command.Cli, options buildOptions) types.ImageB
+@@ -672,6 +674,8 @@ func imageBuildOptions(dockerCli command.Cli, options buildOptions) types.ImageB
  		Labels:         opts.ConvertKVStringsToMap(options.labels.GetAll()),
  		CacheFrom:      options.cacheFrom,
  		SecurityOpt:    options.securityOpt,
@@ -60,37 +60,28 @@ index c3de3d976a..6782a33fd2 100644
  	UTSMode         UTSMode           // UTS namespace to use for the container
  	UsernsMode      UsernsMode        // The user namespace to use for the container
 diff --git a/components/cli/vendor/github.com/docker/docker/client/image_build.go b/components/cli/vendor/github.com/docker/docker/client/image_build.go
-index 8fcf995036..42cf028bf5 100644
+index 8fcf995036..f333c4e371 100644
 --- a/components/cli/vendor/github.com/docker/docker/client/image_build.go
 +++ b/components/cli/vendor/github.com/docker/docker/client/image_build.go
 @@ -116,6 +116,13 @@ func (cli *Client) imageBuildOptionsToQuery(options types.ImageBuildOptions) (ur
  	}
  	query.Set("labels", string(labelsJSON))
  
-+	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
-+	imgCryptOpt, err := json.Marshal(options.ImgCryptOpt)
-+        if err != nil {
-+                return query, err
-+        }
-+        query.Set("imgcryptopt", string(imgCryptOpt))
++        //Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
++        imgCryptOpt, err := json.Marshal(options.ImgCryptOpt)
++         if err != nil {
++                 return query, err
++         }
++         query.Set("imgcryptopt", string(imgCryptOpt))
 +
  	cacheFromJSON, err := json.Marshal(options.CacheFrom)
  	if err != nil {
  		return query, err
 diff --git a/components/engine/Dockerfile b/components/engine/Dockerfile
-index 766db8a1b6..80e80ffff0 100644
+index 5623b0fa13..1725e0a7c0 100644
 --- a/components/engine/Dockerfile
 +++ b/components/engine/Dockerfile
-@@ -29,6 +29,8 @@ ARG GO_VERSION=1.12.12
- ARG DEBIAN_FRONTEND=noninteractive
- 
- FROM golang:${GO_VERSION}-stretch AS base
-+
-+
- ARG APT_MIRROR
- RUN sed -ri "s/(httpredir|deb).debian.org/${APT_MIRROR:-deb.debian.org}/g" /etc/apt/sources.list \
-  && sed -ri "s/(security).debian.org/${APT_MIRROR:-security.debian.org}/g" /etc/apt/sources.list
-@@ -287,5 +289,7 @@ VOLUME /var/lib/docker
+@@ -312,5 +324,7 @@ VOLUME /var/lib/docker
  ENTRYPOINT ["hack/dind"]
  
  FROM dev AS final
@@ -99,7 +90,7 @@ index 766db8a1b6..80e80ffff0 100644
  # Upload docker source
  COPY . /go/src/github.com/docker/docker
 diff --git a/components/engine/api/server/router/build/build_routes.go b/components/engine/api/server/router/build/build_routes.go
-index 57d9fc8c46..f9a8ca81ef 100644
+index 57d9fc8c46..f8851130da 100644
 --- a/components/engine/api/server/router/build/build_routes.go
 +++ b/components/engine/api/server/router/build/build_routes.go
 @@ -132,6 +132,15 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
@@ -107,27 +98,19 @@ index 57d9fc8c46..f9a8ca81ef 100644
  	}
  
 +	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
-+	imgCryptOpt := r.FormValue("imgcryptopt")
-+	if imgCryptOpt != "" {
-+                  var imgcryptopt = []string{}
-+                  if err := json.Unmarshal([]byte(imgCryptOpt), &imgcryptopt); err != nil {
-+                         return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading img crypt opts")
-+                 }
-+               options.ImgCryptOpt = imgcryptopt
-+        }
++        imgCryptOpt := r.FormValue("imgcryptopt")
++        if imgCryptOpt != "" {
++                   var imgcryptopt = []string{}
++                   if err := json.Unmarshal([]byte(imgCryptOpt), &imgcryptopt); err != nil {
++                          return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading img crypt opts")
++                  }
++                options.ImgCryptOpt = imgcryptopt
++         }
  	cacheFromJSON := r.FormValue("cachefrom")
  	if cacheFromJSON != "" {
  		var cacheFrom = []string{}
-@@ -259,7 +268,6 @@ func (br *buildRouter) postBuild(ctx context.Context, w http.ResponseWriter, r *
- 		return errf(err)
- 	}
- 	buildOptions.AuthConfigs = getAuthConfigs(r.Header)
--
- 	if buildOptions.Squash && !br.daemon.HasExperimental() {
- 		return errdefs.InvalidParameter(errors.New("squash is only supported with experimental mode"))
- 	}
 diff --git a/components/engine/api/types/client.go b/components/engine/api/types/client.go
-index 4b9f50282b..9b5da4a120 100644
+index fe90617eec..7aba26d21c 100644
 --- a/components/engine/api/types/client.go
 +++ b/components/engine/api/types/client.go
 @@ -177,6 +177,8 @@ type ImageBuildOptions struct {
@@ -140,14 +123,14 @@ index 4b9f50282b..9b5da4a120 100644
  	Target      string
  	SessionID   string
 diff --git a/components/engine/api/types/container/host_config.go b/components/engine/api/types/container/host_config.go
-index c3de3d976a..e729488265 100644
+index c3de3d976a..6782a33fd2 100644
 --- a/components/engine/api/types/container/host_config.go
 +++ b/components/engine/api/types/container/host_config.go
 @@ -396,6 +396,7 @@ type HostConfig struct {
  	ReadonlyRootfs  bool              // Is the container root filesystem in read-only
  	SecurityOpt     []string          // List of string values to customize labels for MLS systems, such as SELinux.
  	StorageOpt      map[string]string `json:",omitempty"` // Storage driver options per container.
-+        ImgCryptOpt     map[string]string `json:",omitempty"` //Added ImgCryptOpt to support secureoverlay2
++	ImgCryptOpt     map[string]string `json:",omitempty"` //Added ImgCryptOpt to support secureoverlay2
  	Tmpfs           map[string]string `json:",omitempty"` // List of tmpfs (mounts) used for the container
  	UTSMode         UTSMode           // UTS namespace to use for the container
  	UsernsMode      UsernsMode        // The user namespace to use for the container
@@ -187,7 +170,7 @@ index 08cb396a2b..f61bc282d0 100644
  	return im.image.ImageID()
  }
 diff --git a/components/engine/builder/dockerfile/internals.go b/components/engine/builder/dockerfile/internals.go
-index fa35c4f3c0..ed4a0fafc0 100644
+index fa35c4f3c0..9aa94514e1 100644
 --- a/components/engine/builder/dockerfile/internals.go
 +++ b/components/engine/builder/dockerfile/internals.go
 @@ -19,6 +19,7 @@ import (
@@ -204,17 +187,16 @@ index fa35c4f3c0..ed4a0fafc0 100644
  
 -	rwLayer, err := imageMount.NewRWLayer()
 +	rwlOpts := layer.CreateRWLayerOpts{
-+		ImgCryptOpt: getImgCryptOpts(b.options),
-+	}
-+	rwLayer, err := imageMount.NewRWLayerSecureCopy(&rwlOpts)
++                ImgCryptOpt: getImgCryptOpts(b.options),
++        }
++        rwLayer, err := imageMount.NewRWLayerSecureCopy(&rwlOpts)
  	if err != nil {
  		return err
  	}
-@@ -455,6 +459,25 @@ func (b *Builder) create(runConfig *container.Config) (string, error) {
+@@ -455,6 +459,24 @@ func (b *Builder) create(runConfig *container.Config) (string, error) {
  	return container.ID, nil
  }
  
-+
 +//Added back to support storage opt for secureoverlay2
 +func  getImgCryptOpts(options *types.ImageBuildOptions) (map[string]string) {
 +       imgCryptOpts := make(map[string]string)
@@ -236,16 +218,17 @@ index fa35c4f3c0..ed4a0fafc0 100644
  func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *container.HostConfig {
  	resources := container.Resources{
  		CgroupParent: options.CgroupParent,
-@@ -468,6 +491,8 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
+@@ -467,7 +489,8 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
+ 		MemorySwap:   options.MemorySwap,
  		Ulimits:      options.Ulimits,
  	}
- 
+-
 +	//Added ImgCryptOpt to support secureoverlay2 - passes key information to the daemon
-+	imgCryptOpt := getImgCryptOpts(options)
++        imgCryptOpt := getImgCryptOpts(options)
  	hc := &container.HostConfig{
  		SecurityOpt: options.SecurityOpt,
  		Isolation:   options.Isolation,
-@@ -477,6 +502,7 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
+@@ -477,6 +500,7 @@ func hostConfigFromOptions(options *types.ImageBuildOptions, isWCOW bool) *conta
  		// Set a log config to override any default value set on the daemon
  		LogConfig:  defaultLogConfig,
  		ExtraHosts: options.ExtraHosts,
@@ -290,7 +273,7 @@ index 44434f7dcd..9d8e5be71e 100644
  
  // InitFunc initializes the storage driver.
 diff --git a/components/engine/daemon/graphdriver/driver_linux.go b/components/engine/daemon/graphdriver/driver_linux.go
-index 61c6b24a9c..2f6c31974d 100644
+index 61c6b24a9c..2268c00f75 100644
 --- a/components/engine/daemon/graphdriver/driver_linux.go
 +++ b/components/engine/daemon/graphdriver/driver_linux.go
 @@ -48,7 +48,7 @@ const (
@@ -298,12 +281,12 @@ index 61c6b24a9c..2f6c31974d 100644
  var (
  	// List of drivers that should be used in an order
 -	priority = "btrfs,zfs,overlay2,aufs,overlay,devicemapper,vfs"
-+	priority = "btrfs,zfs,overlay2,aufs,overlay,devicemapper,vfs,secureoverlay2"
++        priority = "btrfs,zfs,overlay2,aufs,overlay,devicemapper,vfs,secureoverlay2"
  
  	// FsNames maps filesystem id to name of the filesystem.
  	FsNames = map[FsMagic]string{
 diff --git a/components/engine/daemon/images/image_builder.go b/components/engine/daemon/images/image_builder.go
-index cdf951c6f5..dc48f7b66d 100644
+index 320ffcf4cb..4e3fd117a0 100644
 --- a/components/engine/daemon/images/image_builder.go
 +++ b/components/engine/daemon/images/image_builder.go
 @@ -17,6 +17,7 @@ import (
@@ -371,30 +354,17 @@ index e8df5cb649..98b9babc67 100644
  
  	// Indexing by OS is safe here as validation of OS has already been performed in create() (the only
 diff --git a/components/engine/hack/dockerfile/install/gotestsum.installer b/components/engine/hack/dockerfile/install/gotestsum.installer
-index 032f46f2fe..1214a9e9cd 100755
+index 1214a9e9cd..79f254003e 100755
 --- a/components/engine/hack/dockerfile/install/gotestsum.installer
 +++ b/components/engine/hack/dockerfile/install/gotestsum.installer
-@@ -1,11 +1,11 @@
- #!/bin/sh
- 
--GOTESTSUM_COMMIT='v0.3.5'
-+: ${GOTESTSUM_COMMIT:=v0.3.5}
- 
--install_gotestsum() {
--	echo "Installing gotestsum version $GOTESTSUM_COMMIT"
--	go get -d gotest.tools/gotestsum
--	cd "$GOPATH/src/gotest.tools/gotestsum"
--	git checkout -q "$GOTESTSUM_COMMIT"
-+install_gotestsum() (
-+	set -e
-+	export GO111MODULE=on
-+	go get -d "gotest.tools/gotestsum@${GOTESTSUM_COMMIT}"
+@@ -7,5 +7,4 @@ install_gotestsum() (
+ 	export GO111MODULE=on
+ 	go get -d "gotest.tools/gotestsum@${GOTESTSUM_COMMIT}"
  	go build -buildmode=pie -o "${PREFIX}/gotestsum" 'gotest.tools/gotestsum'
--}
-+
-+)
+-
+ )
 diff --git a/components/engine/integration/build/build_session_test.go b/components/engine/integration/build/build_session_test.go
-index 578ea2102c..6d33f7a52a 100644
+index 578ea2102c..7492118241 100644
 --- a/components/engine/integration/build/build_session_test.go
 +++ b/components/engine/integration/build/build_session_test.go
 @@ -78,7 +78,8 @@ func TestBuildWithSession(t *testing.T) {
@@ -402,8 +372,8 @@ index 578ea2102c..6d33f7a52a 100644
  	assert.NilError(t, err)
  	assert.Check(t, is.Contains(string(outBytes), "Successfully built"))
 -	assert.Check(t, is.Equal(strings.Count(string(outBytes), "Using cache"), 4))
-+	//commentint this as it is failing due to enviromental configuration
-+	//assert.Check(t, is.Equal(strings.Count(string(outBytes), "Using cache"), 4))
++        //commentint this as it is failing due to enviromental configuration
++        //assert.Check(t, is.Equal(strings.Count(string(outBytes), "Using cache"), 4))
  
  	_, err = client.BuildCachePrune(context.TODO(), types.BuildCachePruneOptions{All: true})
  	assert.Check(t, err)
