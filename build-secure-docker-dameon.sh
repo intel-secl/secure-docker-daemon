@@ -8,11 +8,11 @@ DEPS_DIR=`pwd`/vendor/
 DOCKER_CE=`pwd`/docker-ce
 BUILD_DIR=`pwd`
 DOCKER_CE_ENGINE_SECUREOVERLAY_INTTESTSDIR=$DOCKER_CE_ENGINE/integration/secureoverlay/
-VERSION=19.03.5
+VERSION=19.03.13
 
 git clone https://github.com/docker/docker-ce.git
 cd $DOCKER_CE
-git checkout v19.03.5
+git checkout v19.03.13
 
 if [ $? -ne 0 ];
 then
