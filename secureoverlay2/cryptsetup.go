@@ -8,19 +8,19 @@
 package secureoverlay2
 
 import (
-	"errors"
-	"encoding/base64"
-	"fmt"
-	"path"
-	"path/filepath"
-	"syscall"
-	"runtime"
-	"os/exec"
-	"os"
 	"bytes"
-	"strings"
+	"encoding/base64"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
@@ -129,12 +129,12 @@ func exists(path string) (bool, error) {
 	return true, err
 }
 
-func runCmd(cmdStr string) (string, error) {
+func runCmd(cmdStr, params string) (string, error) {
 	logrus.Debugf("runCmd called w. cmd: %s", cmdStr)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+	cmd := exec.Command(cmdPath, strings.Fields(params)...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -241,8 +241,9 @@ func createImageFile(filePath string, size int64) error {
 }
 
 func fsFormat(path, fsType, Options string) error {
-	cmd := fmt.Sprintf("mkfs.%s -b %s -m %s %s", fsType, ConstFsBlockSize, ConstFsReservedBlocks, path)
-	if out, err := runCmd(cmd); err != nil {
+	cmd := fmt.Sprintf("mkfs.%s", fsType)
+	params := fmt.Sprintf("-b %s -m %s %s", ConstFsBlockSize, ConstFsReservedBlocks, path)
+	if out, err := runCmd(cmd, params); err != nil {
 		logrus.Errorf("failed to format device %s, error: %s, out: %s", path, err.Error(), out)
 		return err
 	}
@@ -267,7 +268,6 @@ func safeSize(size int64) int64 {
 }
 
 func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error {
-	cmd := ""
 	key := params.Key
 	dev := devPath
 	nm := name
@@ -308,26 +308,26 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 	}
 
 	keyPath := tmpKeyFile.Name()
-	
 
+	CmdParams := ""
 	switch(luksCmd) {
 		case ConstLuksCmdFormat:
-			cmd = fmt.Sprintf("cryptsetup -v -q luksFormat --type luks1 --key-file %s -c %s -h %s -s %s %s",
+			CmdParams = fmt.Sprintf("-v -q luksFormat --type luks1 --key-file %s -c %s -h %s -s %s %s",
 								keyPath, c, ht, ks, dev)
 		case ConstLuksCmdOpen:
 			if rd {
-				cmd = fmt.Sprintf("cryptsetup -v --readonly --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
+				CmdParams = fmt.Sprintf("-v --readonly --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
 			} else {
-				cmd = fmt.Sprintf("cryptsetup -v --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
+				CmdParams = fmt.Sprintf("-v --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
 			}
 		case ConstLuksCmdClose:
-			cmd = fmt.Sprintf("cryptsetup -v --type luks1 close %s", nm)
+			CmdParams = fmt.Sprintf("-v --type luks1 close %s", nm)
 
 		default:
 			return fmt.Errorf("invalid luks command: %s", luksCmd)
 	}
-
-	if out, err := runCmd(cmd); err != nil {
+	cmd := "cryptsetup"
+	if out, err := runCmd(cmd, CmdParams); err != nil {
 		// TODO: filter password from log message (or better, pass key/secret directly via a pipe to cryptsetup)
 		// Note: runCmd also (debug) logs the whole command!!!!
 		logrus.Errorf("failed to execute luks command %s, error: %s, out: %s", luksCmd, err.Error(), out)
