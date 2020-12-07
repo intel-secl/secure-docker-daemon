@@ -43,7 +43,7 @@ func imageSave(client client.APIClient, path, image string) error {
 		return err
 	}
 	defer responseReader.Close()
-	file, err := os.Create(path)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ func TestSecureOverlayImageLoadSave(t *testing.T) {
 	responseReader, err := client.ContainerExport(context.Background(), cID)
 	assert.NilError(t, err)
 	defer responseReader.Close()
-	file, err := os.Create(exportedImagePath)
+	file, err := os.OpenFile(exportedImagePath, os.O_CREATE|os.O_RDWR, 0600)
 	assert.NilError(t, err)
 	defer file.Close()
 	_, err = io.Copy(file, responseReader)
