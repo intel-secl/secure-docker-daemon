@@ -224,7 +224,7 @@ func unmountDev(target string) error {
 func createImageFile(filePath string, size int64) error {
 	// create image file if does not exists
 	if rt, _ := exists(filePath); !rt {
-		os.Create(filePath)
+		os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0600)
 	}
 
 	// TODO: what uid, gid should be used for this file?? Docker
