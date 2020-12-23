@@ -134,7 +134,7 @@ func runCmd(cmdStr, params string) (string, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	cmd := exec.Command(cmdPath, strings.Fields(params)...)
+	cmd := exec.Command(cmdStr, strings.Fields(params)...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
