@@ -63,24 +63,27 @@ type unitMap map[string]int64
 
 var (
 	// untar defines the untar method
-	untar = chrootarchive.UntarUncompressed
-	binaryMap  = unitMap{"k": KiB, "m": MiB, "g": GiB, "t": TiB, "p": PiB}
-	sizeRegex  = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[iI]?[bB]?$`)
+	untar     = chrootarchive.UntarUncompressed
+	binaryMap = unitMap{"k": KiB, "m": MiB, "g": GiB, "t": TiB, "p": PiB}
+	sizeRegex = regexp.MustCompile(`^(\d+(\.\d+)*) ?([kKmMgGtTpP])?[iI]?[bB]?$`)
 )
+
 type KeyInfo struct {
 	KeyID      string
 	Key        []byte
 	ReturnCode bool
 }
+
 //the key will be polled from wlagent fetch-key rpc calls maximum 90 times till get the key from wlagent fetch-key rpc call.
 //if the count reaches 90 and not able to get key from wlagent fetch-key the error will be thrown
 const (
-	MAXKEYPOLL = 90
+	MAXKEYPOLL        = 90
 	RPCSocketFilePath = "/var/run/workload-agent/wlagent.sock"
 )
 
 var ctx context.Context
 var mountMtx sync.Mutex
+
 // This backend uses the overlay union filesystem for containers
 // with diff directories for each layer.
 
@@ -134,12 +137,12 @@ const (
 
 	// security transform related options passed to dmcrypt
 
-        // ConstDefaultHashType : set the hashing algorithm used by dmcrypt
+	// ConstDefaultHashType : set the hashing algorithm used by dmcrypt
 	ConstDefaultHashType = "sha256"
-        // ConstDefaultCipher : set the crypt cipher used by dmcrypt
-	ConstDefaultCipher   = "aes-xts-plain"
-        // ConstDefaultKeySize : set the key size in bits used by dmcrypt
-	ConstDefaultKeySize  = "256"
+	// ConstDefaultCipher : set the crypt cipher used by dmcrypt
+	ConstDefaultCipher = "aes-xts-plain"
+	// ConstDefaultKeySize : set the key size in bits used by dmcrypt
+	ConstDefaultKeySize = "256"
 
 	// security storage related options
 	constMetaDataFileName      = "security.meta"
@@ -1766,44 +1769,44 @@ func (s secureImgCryptOptions) save(metaDataFile string) error {
 
 func getKeyFromKeyCache(keyHandle string) (string, string, error) {
 
-        ctxkey := ctx.Value(keyHandle)
-        if(ctxkey == nil || ctxkey == ""){
-                conn, err := net.Dial("unix", RPCSocketFilePath)
-                if err != nil {
-		       return "", "", fmt.Errorf("secureoverlay2: Failed to dial workload-agent wlagent.sock")
-                }
+	ctxkey := ctx.Value(keyHandle)
+	if ctxkey == nil || ctxkey == "" {
+		conn, err := net.Dial("unix", RPCSocketFilePath)
+		if err != nil {
+			return "", "", fmt.Errorf("secureoverlay2: Failed to dial workload-agent wlagent.sock")
+		}
 		client := rpc.NewClient(conn)
 		defer client.Close()
-                var outKey KeyInfo
-                var args = KeyInfo{
-                         KeyID:   keyHandle,
-                }
-                err = client.Call("VirtualMachine.FetchKey", &args, &outKey)
-                if err != nil {
-                        logrus.Tracef("%+v", err)
+		var outKey KeyInfo
+		var args = KeyInfo{
+			KeyID: keyHandle,
+		}
+		err = client.Call("VirtualMachine.FetchKey", &args, &outKey)
+		if err != nil {
+			logrus.Tracef("%+v", err)
 			return "", "", fmt.Errorf("secureoverlay2: rpc call workload-agent fetch-key: Client call failed")
-                }
+		}
 
-                if err != nil {
-                    return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
-                }
+		if err != nil {
+			return "", "", fmt.Errorf("Could not fetch the key from workload-agent")
+		}
 		if len(outKey.Key) == 0 {
 			return "", "", fmt.Errorf("Empty key received from workload-agent")
 		}
-                unwrappedKey := base64.StdEncoding.EncodeToString(outKey.Key)
-                ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
-                return unwrappedKey, "", nil
-        }	
-        return fmt.Sprintf("%v", ctx.Value(keyHandle)), "", nil
+		unwrappedKey := base64.StdEncoding.EncodeToString(outKey.Key)
+		ctx = context.WithValue(context.TODO(), keyHandle, unwrappedKey)
+		return unwrappedKey, "", nil
+	}
+	return fmt.Sprintf("%v", ctx.Value(keyHandle)), "", nil
 
 }
 
 // Interface to retrive encryption key for the layer, using layerid as key
 
 func getKey(keyFilePath, keyHandle string) (string, string, error) {
-        var rKey string
-        var rKeyInfo string
-        var rErr error
+	var rKey string
+	var rKeyInfo string
+	var rErr error
 	if keyHandle == "" || encryptContainerImage {
 		encryptContainerImage = true
 		logrus.Debugf("secureoverlay2: getting key for encryption: %s ", keyHandle)
@@ -1819,18 +1822,18 @@ func getKey(keyFilePath, keyHandle string) (string, string, error) {
 			key := string(unwrappedKey)
 			key = strings.TrimSuffix(key, "\n")
 			keyInfo := strings.Split(keyFilePath, "_")
-                        rKey, rKeyInfo, rErr = key, keyInfo[1], nil
+			rKey, rKeyInfo, rErr = key, keyInfo[1], nil
 		} else {
-                        rKey, rKeyInfo, rErr = "", "", fmt.Errorf("secureoverlay2: keyFilePath empty")
+			rKey, rKeyInfo, rErr = "", "", fmt.Errorf("secureoverlay2: keyFilePath empty")
 		}
 
 	} else {
-                //fetch the key for encrypting/decrypting the image
-                logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
-                rKey, rKeyInfo, rErr  = getKmsKeyFromKeyCache(keyHandle)
-        }
+		//fetch the key for encrypting/decrypting the image
+		logrus.Debugf("secureoverlay2:  getting key for decryption on : %s ", keyHandle)
+		rKey, rKeyInfo, rErr = getKmsKeyFromKeyCache(keyHandle)
+	}
 
-        return rKey, rKeyInfo, rErr
+	return rKey, rKeyInfo, rErr
 }
 
 //get kms key from keyring by polling on keyring every 100 milliseconds
@@ -1883,7 +1886,7 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 		if s.KeyType == constKeyTypeKMS {
 			key, kmstranskey, err = getKey(s.KeyFilePath, s.KeyHandle)
 			//Update the keyhandle only when we have created a new key from KMS
-	                if kmstranskey != "" {
+			if kmstranskey != "" {
 				s.KeyHandle = kmstranskey
 				logrus.Infof("secureoverlay2: securityTransform  kms handle is: %s ", kmstranskey)
 			}
@@ -1892,7 +1895,7 @@ func (d *Driver) securityTransform(id, parent string, s secureImgCryptOptions, c
 		// when key is passed via command line - used for TESTING ONLY
 		if s.KeyType == constKeyTypeString {
 			if len(strings.TrimSpace(s.KeyTypeOption)) == 0 {
-				s.KeyTypeOption  = generateID(ConstDefaultStringKeyLength)
+				s.KeyTypeOption = generateID(ConstDefaultStringKeyLength)
 			}
 
 			key = s.KeyTypeOption
@@ -2056,4 +2059,3 @@ func parseSize(sizeStr string, uMap unitMap) (int64, error) {
 
 	return int64(size), nil
 }
-

@@ -23,14 +23,13 @@ import (
 	"gotest.tools/skip"
 
 	"github.com/docker/docker/integration/internal/container"
-
 )
 
 type TestData struct {
-	name                           string
-	imgtag                         string
-	dockerfile                     string
-	copts                          []string
+	name       string
+	imgtag     string
+	dockerfile string
+	copts      []string
 }
 
 const secureMetadataKey string = "security-meta-data"
@@ -87,13 +86,12 @@ func imageImport(client client.APIClient, path string) error {
 	return nil
 }
 
-func RunSecureOverlaySuccessBuildTest(t *testing.T, c TestData){
+func RunSecureOverlaySuccessBuildTest(t *testing.T, c TestData) {
 	client := testEnv.APIClient()
 
 	t.Run(c.name, func(t *testing.T) {
 		source := fakecontext.New(t, "", fakecontext.WithDockerfile(c.dockerfile))
 		defer source.Close()
-
 
 		mytags := []string{c.imgtag}
 
@@ -108,7 +106,7 @@ func RunSecureOverlaySuccessBuildTest(t *testing.T, c TestData){
 		resp.Body.Close()
 		assert.NilError(t, err)
 
-		assert.Check(t, is.Contains(out.String(), "Successfully built"), "Image not built: build output: \n " + out.String())
+		assert.Check(t, is.Contains(out.String(), "Successfully built"), "Image not built: build output: \n "+out.String())
 
 		// check if the security-meta-data was added to the image
 		imageInspectResponse, _, err := client.ImageInspectWithRaw(ctx, c.imgtag)
@@ -116,7 +114,7 @@ func RunSecureOverlaySuccessBuildTest(t *testing.T, c TestData){
 			t.Fatal(err)
 		}
 
-		assert.Check(t, is.Contains(imageInspectResponse.GraphDriver.Data, secureMetadataKey), "security-meta-data not /" +
+		assert.Check(t, is.Contains(imageInspectResponse.GraphDriver.Data, secureMetadataKey), "security-meta-data not /"+
 			" present in encrypted image actual: %v", imageInspectResponse.GraphDriver.Data)
 	})
 }
@@ -126,12 +124,12 @@ func TestSecureOverlayEncryptedImageFromVanillaBase(t *testing.T) {
 	defer setupTest(t)()
 
 	c := TestData{
-		name: "Encrypted image built from vanilla base image",
+		name:   "Encrypted image built from vanilla base image",
 		imgtag: "myimg1",
 		dockerfile: `FROM busybox
                         ENV somethingintheenv mybad
                         RUN touch something && echo "This is my first commit to a container" > something`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	RunSecureOverlaySuccessBuildTest(t, c)
@@ -142,22 +140,22 @@ func TestSecureOverlayEncryptedImageFromEncryptedBase(t *testing.T) {
 	defer setupTest(t)()
 
 	c := TestData{
-		name: "Encrypted image built from vanilla base image",
+		name:   "Encrypted image built from vanilla base image",
 		imgtag: "myimg2",
 		dockerfile: `FROM busybox
                         ENV somethingintheenv mybad
                         RUN touch something && echo "This is my first commit to a container" > something`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	RunSecureOverlaySuccessBuildTest(t, c)
 
 	c = TestData{
-		name: "Encrypted image built from encrypted base image",
+		name:   "Encrypted image built from encrypted base image",
 		imgtag: "myimg3",
 		dockerfile: `FROM myimg2
                         RUN touch something4 something5 && echo "This is my second commit to a container" > something5`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	RunSecureOverlaySuccessBuildTest(t, c)
@@ -168,11 +166,11 @@ func TestSecureOverlayEncryptedImageFromLargeBaseImage(t *testing.T) {
 	defer setupTest(t)()
 
 	c := TestData{
-		name: "Encrypted image built with large base image from DockerHub",
+		name:   "Encrypted image built with large base image from DockerHub",
 		imgtag: "myimg4",
 		dockerfile: `FROM postgres
                         RUN touch something7 && echo "This is my seventh commit to a container" > something7`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	RunSecureOverlaySuccessBuildTest(t, c)
@@ -183,18 +181,18 @@ func TestSecureOverlayVanillaImageFromEncryptedBase(t *testing.T) {
 	defer setupTest(t)()
 
 	c := TestData{
-		name: "Encrypted image built from vanilla base image",
+		name:   "Encrypted image built from vanilla base image",
 		imgtag: "myimg5",
 		dockerfile: `FROM busybox
                         ENV somethingintheenv mybad
                         RUN touch something && echo "This is my first commit to a container" > something`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	RunSecureOverlaySuccessBuildTest(t, c)
 
 	c = TestData{
-		name: "Vanilla image built with encrypted base image from DockerHub",
+		name:   "Vanilla image built with encrypted base image from DockerHub",
 		imgtag: "myimg6",
 		dockerfile: `FROM myimg5
                         RUN touch something10 && echo "This is my tenth commit to a container" > something10`,
@@ -220,7 +218,7 @@ func TestSecureOverlayVanillaImageFromEncryptedBase(t *testing.T) {
 		resp.Body.Close()
 		assert.NilError(t, err)
 
-		assert.Check(t, is.Contains(out.String(), "Successfully built"), "Image not built: build output: \n " + out.String())
+		assert.Check(t, is.Contains(out.String(), "Successfully built"), "Image not built: build output: \n "+out.String())
 
 		// the security-meta-data should not be added - same as a vanilla image
 		imageInspectResponse, _, err := client.ImageInspectWithRaw(ctx, mytags[0])
@@ -237,13 +235,13 @@ func TestSecureOverlayNoopBuild(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME: Secureoverlay2 on Windows is not supported in this release!")
 	defer setupTest(t)()
 
-	c  := TestData{
-		name: "successful encrypted image build with only noop changes",
+	c := TestData{
+		name:   "successful encrypted image build with only noop changes",
 		imgtag: "myimg7",
 		dockerfile: `FROM busybox
 					ENV somethingintheenv mybad
 					ENV somethingelse mygood`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	client := testEnv.APIClient()
@@ -266,7 +264,7 @@ func TestSecureOverlayNoopBuild(t *testing.T) {
 		resp.Body.Close()
 		assert.NilError(t, err)
 
-		assert.Check(t, is.Contains(out.String(), "Successfully built"), "Image not built: build output: \n " + out.String())
+		assert.Check(t, is.Contains(out.String(), "Successfully built"), "Image not built: build output: \n "+out.String())
 
 		// the security-meta-data should not be added - same as a vanilla image
 		imageInspectResponse, _, err := client.ImageInspectWithRaw(ctx, mytags[0])
@@ -284,13 +282,13 @@ func TestSecureOverlayImageLoadSave(t *testing.T) {
 	defer setupTest(t)()
 
 	c := TestData{
-		name: "Encrypted image built from vanilla base image",
+		name:   "Encrypted image built from vanilla base image",
 		imgtag: "busyboxenc",
 		dockerfile: `FROM busybox
                         ENV somethingintheenv mybad
                         RUN touch something && echo "This is my first commit to a container" > something
 						ENTRYPOINT ["/bin/sh", "-c", "echo Something $SOMETHINGINTHEENV"]`,
-		copts: []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
+		copts: []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"},
 	}
 
 	RunSecureOverlaySuccessBuildTest(t, c)
@@ -330,32 +328,31 @@ func TestSecureOverlayRunEncryptedImage(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME: Secureoverlay2 on Windows is not supported in this release!")
 	defer setupTest(t)()
 	client := testEnv.APIClient()
-	CRYPTOPTS := []string {"KeyType=key-type-string",  "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"}
-
+	CRYPTOPTS := []string{"KeyType=key-type-string", "KeyTypeOption=MyP@ssw0rd", "RequiresConfidentiality=true"}
 
 	testCases := []struct {
-		name          string
-		image         string
-		dockerfile    string
-		outputmsg     string
+		name       string
+		image      string
+		dockerfile string
+		outputmsg  string
 	}{
 		{
-			name:          "Containers can be spun up from encrypted images",
-			image:         "myimg:enc",
+			name:  "Containers can be spun up from encrypted images",
+			image: "myimg:enc",
 			dockerfile: `FROM ubuntu:latest
 			ENV SOMETHINGINTHEENV "smells funny"
 			RUN touch something something2 something3 && echo "This is my first commit to a container" > something
 			ENTRYPOINT ["/bin/sh", "-c", "echo Something $SOMETHINGINTHEENV"]`,
-			outputmsg:	"Something smells funny",
+			outputmsg: "Something smells funny",
 		},
 		{
-			name:          "Containers can be spun up from multi-layered encrypted images",
-			image:         "myimg:encmulti",
+			name:  "Containers can be spun up from multi-layered encrypted images",
+			image: "myimg:encmulti",
 			dockerfile: `FROM myimg:enc
 			ENV SOMETHINGINTHEENV "looks good"
 			RUN touch something4 && echo "This is my first commit to a container" > something4
 			ENTRYPOINT ["/bin/sh", "-c", "echo Something in the env $SOMETHINGINTHEENV"]`,
-			outputmsg:	"Something in the env looks good",
+			outputmsg: "Something in the env looks good",
 		},
 	}
 

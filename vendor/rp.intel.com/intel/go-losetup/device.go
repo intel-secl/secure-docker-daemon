@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2019 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
@@ -7,12 +6,12 @@
 package losetup
 
 import (
-	"strings"
 	"fmt"
-	"os"
-	"io/ioutil"
-	"path/filepath"
 	"github.com/sirupsen/logrus"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Device represents a loop device /dev/loop#
@@ -38,22 +37,24 @@ func (device Device) Path() string {
 // search device using backing file path.
 func GetDeviceFromBackingFilePath(backingFile string) (Device, error) {
 	absPath, err := filepath.Abs(backingFile)
-	if err != nil { return Device{}, err }
+	if err != nil {
+		return Device{}, err
+	}
 
 	// iterate through all the devices to match given backing file
 	// we cannot use dev.GetInfo as it returns only 64 byte prefix, so we look for backing file
 	// via /sys/dev/block/<lo-dev-maj-num>:<lo-dev-num>/loop/backing_file
 	// Note and assumptions
 	// - lo-dev-maj-num = 7 = Major in Constants.go
-        // - /sys/dev/block/7:<lo-dev-num> always exists when loop device is created/used at least once
-        //   - we assume there is no gap in assignement, i.e., everybody requests lowest-possible number
+	// - /sys/dev/block/7:<lo-dev-num> always exists when loop device is created/used at least once
+	//   - we assume there is no gap in assignement, i.e., everybody requests lowest-possible number
 	//     and so we assume there is no loop device with higher <lo-dev-num> once we hit the
 	//     first non-existing one
-        // - suffix loop/backing_file exists only if loop-device is allocated
-        //   - name in backing_file might have '(deleted)' suffix!
+	// - suffix loop/backing_file exists only if loop-device is allocated
+	//   - name in backing_file might have '(deleted)' suffix!
 	//     This shouldn't happen in our case, though?
 
-	for i:=0;; i++ {
+	for i := 0; ; i++ {
 		devDirInSys := fmt.Sprintf("/sys/dev/block/%d:%d", Major, i)
 		if _, err := os.Stat(devDirInSys); os.IsNotExist(err) {
 			// logrus.Debugf("losetup: GetDeviceFromBackingFilePath stopped searching with last device %d (%s)", i, devDirInSys)
@@ -71,8 +72,8 @@ func GetDeviceFromBackingFilePath(backingFile string) (Device, error) {
 		}
 		backFileName := strings.TrimSuffix(string(backFileNameBuf), "\n")
 		logrus.Debugf("losetup: GetDeviceFromBackingFilePath trying to match %s with %s", backFileName, absPath)
-		if (absPath == backFileName) { // found the device mounted for the given backing file
-			dev := Device{number:uint64(i), flags: os.O_RDWR} // note: we fix flags below ...
+		if absPath == backFileName { // found the device mounted for the given backing file
+			dev := Device{number: uint64(i), flags: os.O_RDWR} // note: we fix flags below ...
 			info, err := dev.GetInfo()
 			if err != nil {
 				logrus.Errorf("losetup: GetDeviceFromBackingFilePath failed to get info for allocated loop device %d (%s): err=%v", i, err)

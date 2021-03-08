@@ -30,79 +30,79 @@ import (
 
 const (
 	// ConstCryptsetupBin : Path to the cryptsetup binary
-	ConstCryptsetupBin		= "/sbin/cryptsetup"
-        // ConstDevMapperPrefix : Path to the mapper devices
-	ConstDevMapperPrefix		= "/dev/mapper"
-        // ConstMinImageSize : Minimum size for a Docker Image layer
-	ConstMinImageSize		= 10 * 1024 * 1024 // 10 MB
-        // ConstCryptsetupOverhead : Extra free space allocated to an image layer for any overruns
-	ConstCryptsetupOverhead		= 2 * 1024 * 1024 // 4 MB
-        // ConstFsOverhead : Percentage of layer size allocate for overhead
-	ConstFsOverhead			= 50 // (in %) 5%
-        // ConstLuksCmdFormat : Command for formatting dmcrypt devices
-	ConstLuksCmdFormat		= "luks-format"
-        // ConstLuksCmdOpen : Command for opening dmcrypt devices
-	ConstLuksCmdOpen		= "luks-open"
-        // ConstLuksCmdClose : Command for closing dmcrypt devices
-	ConstLuksCmdClose		= "luks-close"
-        // ConstLuksCmdRemove : Command for deleting dmcrypt devices
-	ConstLuksCmdRemove		= "luks-remove"
+	ConstCryptsetupBin = "/sbin/cryptsetup"
+	// ConstDevMapperPrefix : Path to the mapper devices
+	ConstDevMapperPrefix = "/dev/mapper"
+	// ConstMinImageSize : Minimum size for a Docker Image layer
+	ConstMinImageSize = 10 * 1024 * 1024 // 10 MB
+	// ConstCryptsetupOverhead : Extra free space allocated to an image layer for any overruns
+	ConstCryptsetupOverhead = 2 * 1024 * 1024 // 4 MB
+	// ConstFsOverhead : Percentage of layer size allocate for overhead
+	ConstFsOverhead = 50 // (in %) 5%
+	// ConstLuksCmdFormat : Command for formatting dmcrypt devices
+	ConstLuksCmdFormat = "luks-format"
+	// ConstLuksCmdOpen : Command for opening dmcrypt devices
+	ConstLuksCmdOpen = "luks-open"
+	// ConstLuksCmdClose : Command for closing dmcrypt devices
+	ConstLuksCmdClose = "luks-close"
+	// ConstLuksCmdRemove : Command for deleting dmcrypt devices
+	ConstLuksCmdRemove = "luks-remove"
 
-        // ConstTypeCrypt : String denoting an dmcrypt encrypted device
-	ConstTypeCrypt			= "type-crypt"
+	// ConstTypeCrypt : String denoting an dmcrypt encrypted device
+	ConstTypeCrypt = "type-crypt"
 
 	// ConstFsBlockSize : Higher values of this setting e.g., 4096, will increase relative filesystem overhead
 	// and increase likelihood the overhead estimation will to small resulting on overflow
 	// of filesystem during securityTransform
-        ConstFsBlockSize                = "1024"
+	ConstFsBlockSize = "1024"
 
-        // ConstFsReservedBlocks : Number of FS blocks reserved per image layer mount
-	ConstFsReservedBlocks		= "0"
+	// ConstFsReservedBlocks : Number of FS blocks reserved per image layer mount
+	ConstFsReservedBlocks = "0"
 
-        // ConstFsTypeExt4 : String denoting the ext4 filesystem
-	ConstFsTypeExt4			= "ext4"
+	// ConstFsTypeExt4 : String denoting the ext4 filesystem
+	ConstFsTypeExt4 = "ext4"
 
-        // ConstBlockDevBasePath : Path to the block devices
-	ConstBlockDevBasePath		= "/sys/dev/block"
-        // ConstLoopMajorNum : Major device number for loopback device
-	ConstLoopMajorNum		= 7
-        // ConstBackingFilePath : Path within the loopback filesystem for backing_file storage
-	ConstBackingFilePath		= "loop/backing_file"
-        // ConstMaxLoopDevices : Ceiling on the number of loopback devices that can be opened simulataneously
-	ConstMaxLoopDevices		= 256
+	// ConstBlockDevBasePath : Path to the block devices
+	ConstBlockDevBasePath = "/sys/dev/block"
+	// ConstLoopMajorNum : Major device number for loopback device
+	ConstLoopMajorNum = 7
+	// ConstBackingFilePath : Path within the loopback filesystem for backing_file storage
+	ConstBackingFilePath = "loop/backing_file"
+	// ConstMaxLoopDevices : Ceiling on the number of loopback devices that can be opened simulataneously
+	ConstMaxLoopDevices = 256
 )
 
 // RawImage : This represents an image mount with a loopback device
 type RawImage struct {
-	ImagePath	string
+	ImagePath string
 	// TODO: this object can be removed after taking care of DevPath() API
-	LoDev		losetup.Device
+	LoDev losetup.Device
 }
 
 // CryptParams : Information passed to dmcrypt for encrypt/decrypt operations
 type CryptParams struct {
-	Cipher		string
-	Key		string
-	KeySize		string
-	HashType	string
-	ReadOnly	bool
+	Cipher   string
+	Key      string
+	KeySize  string
+	HashType string
+	ReadOnly bool
 }
 
 // DeviceParams : Information required to tie the image to the dmcrypt mount device
 type DeviceParams struct {
-	FsType		string
-	Mnt		string
-	UIDMaps         []idtools.IDMap
-	GIDMaps         []idtools.IDMap
+	FsType  string
+	Mnt     string
+	UIDMaps []idtools.IDMap
+	GIDMaps []idtools.IDMap
 }
 
 // VirtualDevice : An encapsulation of an encrypted docker image
 type VirtualDevice struct {
-	Image		RawImage
-	Name		string
-	Type		string
-	Deviceparams	DeviceParams
-	Cryptparams	CryptParams
+	Image        RawImage
+	Name         string
+	Type         string
+	Deviceparams DeviceParams
+	Cryptparams  CryptParams
 }
 
 // DeviceAPI : Enumerates methods to be implemented by a encrypted mount store
@@ -148,16 +148,16 @@ func runCmd(cmdStr, params string) (string, error) {
 
 // compute dir size including some accounting of metadata
 func dirPlusMetaSize(path string) (int64, error) {
-        var size int64
-        err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-                if !info.IsDir() {
-                        size += info.Size()
-                } else { // add size of directory entry(4K) to compute exact disk utilization
-                        size += 4 * 1024
-                }
-                return err
-        })
-        return size, err
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			size += info.Size()
+		} else { // add size of directory entry(4K) to compute exact disk utilization
+			size += 4 * 1024
+		}
+		return err
+	})
+	return size, err
 }
 
 func mountDev(source, target, fsType string, readOnly bool) error {
@@ -295,9 +295,8 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 	defer os.Remove(tmpKeyFile.Name()) // clean up
 	keyByte, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
-                return errors.New("cryptsetup: Error while decoding key from  base64 string into bytes")
-        }
-	
+		return errors.New("cryptsetup: Error while decoding key from  base64 string into bytes")
+	}
 
 	if _, err := tmpKeyFile.Write(keyByte); err != nil {
 		return errors.New("error while writing key to a temp file")
@@ -310,21 +309,21 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 	keyPath := tmpKeyFile.Name()
 
 	CmdParams := ""
-	switch(luksCmd) {
-		case ConstLuksCmdFormat:
-			CmdParams = fmt.Sprintf("-v -q luksFormat --type luks1 --key-file %s -c %s -h %s -s %s %s",
-								keyPath, c, ht, ks, dev)
-		case ConstLuksCmdOpen:
-			if rd {
-				CmdParams = fmt.Sprintf("-v --readonly --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
-			} else {
-				CmdParams = fmt.Sprintf("-v --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
-			}
-		case ConstLuksCmdClose:
-			CmdParams = fmt.Sprintf("-v --type luks1 close %s", nm)
+	switch luksCmd {
+	case ConstLuksCmdFormat:
+		CmdParams = fmt.Sprintf("-v -q luksFormat --type luks1 --key-file %s -c %s -h %s -s %s %s",
+			keyPath, c, ht, ks, dev)
+	case ConstLuksCmdOpen:
+		if rd {
+			CmdParams = fmt.Sprintf("-v --readonly --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
+		} else {
+			CmdParams = fmt.Sprintf("-v --type luks1 open --key-file %s %s %s", keyPath, dev, nm)
+		}
+	case ConstLuksCmdClose:
+		CmdParams = fmt.Sprintf("-v --type luks1 close %s", nm)
 
-		default:
-			return fmt.Errorf("invalid luks command: %s", luksCmd)
+	default:
+		return fmt.Errorf("invalid luks command: %s", luksCmd)
 	}
 	cmd := "cryptsetup"
 	if out, err := runCmd(cmd, CmdParams); err != nil {
@@ -339,20 +338,22 @@ func executeLuksCommand(luksCmd, devPath, name string, params CryptParams) error
 
 func getRootHash(out string) string {
 	// split lines
-    lines := strings.Split(out, "\n")
+	lines := strings.Split(out, "\n")
 	rootHashLine := ""
 
-    for _, ln := range lines {
-	if strings.Contains(ln, "Root hash") {
-		rootHashLine = ln
-		break
+	for _, ln := range lines {
+		if strings.Contains(ln, "Root hash") {
+			rootHashLine = ln
+			break
+		}
 	}
-    }
 
-    rootHash := strings.Split(rootHashLine, ":")
-    if len(rootHash) < 2 { return "" }
+	rootHash := strings.Split(rootHashLine, ":")
+	if len(rootHash) < 2 {
+		return ""
+	}
 
-    return strings.TrimSpace(rootHash[1])
+	return strings.TrimSpace(rootHash[1])
 }
 
 // *************** raw image management *************************************************
@@ -369,7 +370,7 @@ func (i RawImage) Create(size int64) error {
 // Get : Creates the overlay image file
 func (i *RawImage) Get() error {
 	logrus.Debug("secureoverlay2: RawImage Get called")
-	if rt, _ := exists(i.ImagePath); ! rt {
+	if rt, _ := exists(i.ImagePath); !rt {
 		return fmt.Errorf("Image file %s does not exists", i.ImagePath)
 	}
 
@@ -420,7 +421,6 @@ func (i RawImage) devPath() string {
 	return i.LoDev.Path()
 }
 
-
 // *************** virtual device APIs ******************************************************
 
 // Init : Initialize the virtual device
@@ -447,11 +447,11 @@ func (d *VirtualDevice) Create(size int64) error {
 
 	// create raw image file
 	var sz int64
-	switch(d.Type) {
-		case ConstTypeCrypt:
-			sz = safeSize(size + computeFsOverhead(size) + computeCryptOverhead(size))
-		default:
-			return errors.New("Invalid device type")
+	switch d.Type {
+	case ConstTypeCrypt:
+		sz = safeSize(size + computeFsOverhead(size) + computeCryptOverhead(size))
+	default:
+		return errors.New("Invalid device type")
 	}
 	err := d.Image.Create(sz)
 	logrus.Debugf("secureoverlay2: VirtualDevice Create returns w. error: %v", err)
@@ -465,10 +465,12 @@ func (d *VirtualDevice) getCryptName() string {
 func (d *VirtualDevice) format() error {
 	logrus.Debug("secureoverlay2: VirtualDevice format called")
 
-	if err := d.Image.Get(); err != nil {return err}
+	if err := d.Image.Get(); err != nil {
+		return err
+	}
 
 	// detach loop device
-	defer func(){
+	defer func() {
 		if err := d.Image.Put(); err != nil {
 			logrus.Errorf("secureoverlay2: VirtualDevice format, failed to put image back, error: %s", err.Error())
 		}
@@ -480,13 +482,17 @@ func (d *VirtualDevice) format() error {
 	// check if crypt setup required
 	if d.Type == ConstTypeCrypt {
 		// format encrypted device
-		if err := executeLuksCommand( ConstLuksCmdFormat, dev,
-					d.getCryptName(), d.Cryptparams); err != nil {return err}
+		if err := executeLuksCommand(ConstLuksCmdFormat, dev,
+			d.getCryptName(), d.Cryptparams); err != nil {
+			return err
+		}
 
 		// open encrypted device
 		d.Cryptparams.ReadOnly = false
-		if err := executeLuksCommand( ConstLuksCmdOpen, dev,
-					d.getCryptName(), d.Cryptparams); err != nil {return err}
+		if err := executeLuksCommand(ConstLuksCmdOpen, dev,
+			d.getCryptName(), d.Cryptparams); err != nil {
+			return err
+		}
 
 		dev = path.Join(ConstDevMapperPrefix, d.getCryptName())
 
@@ -500,8 +506,8 @@ func (d *VirtualDevice) format() error {
 	// clean up crypt setup
 	if d.Type == ConstTypeCrypt {
 		// close encrypted device
-		if err := executeLuksCommand( ConstLuksCmdClose, "", d.getCryptName(),
-				d.Cryptparams); err != nil {
+		if err := executeLuksCommand(ConstLuksCmdClose, "", d.getCryptName(),
+			d.Cryptparams); err != nil {
 			logrus.Errorf("secureoverlay2: VirtualDevice format, failed to close encrypted device, error: %s", err.Error())
 		}
 	}
@@ -517,10 +523,14 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 
 	// format device before importing data
 	//	(this will format luks and filesystem based on requirements)
-	if err := d.format(); err != nil {return err}
+	if err := d.format(); err != nil {
+		return err
+	}
 
 	// mount image to loop device
-	if err := d.Image.Get(); err != nil {return err}
+	if err := d.Image.Get(); err != nil {
+		return err
+	}
 
 	// device path
 	dev := d.Image.devPath()
@@ -529,8 +539,10 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	if d.Type == ConstTypeCrypt {
 		// open encrypted device
 		d.Cryptparams.ReadOnly = false
-		if err := executeLuksCommand( ConstLuksCmdOpen, dev,
-					d.getCryptName(), d.Cryptparams); err != nil {return err}
+		if err := executeLuksCommand(ConstLuksCmdOpen, dev,
+			d.getCryptName(), d.Cryptparams); err != nil {
+			return err
+		}
 
 		dev = path.Join(ConstDevMapperPrefix, d.getCryptName())
 
@@ -544,9 +556,9 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	// importing data to the device
 	logrus.Debugf("secureoverlay2: VirtualDevice ImportData, unpacking to-be-secured data from archive to %s", d.Deviceparams.Mnt)
 	tarOpts := &archive.TarOptions{
-		UIDMaps: d.Deviceparams.UIDMaps,
-		GIDMaps: d.Deviceparams.GIDMaps,
-		WhiteoutFormat: archive.OverlayWhiteoutFormat,}
+		UIDMaps:        d.Deviceparams.UIDMaps,
+		GIDMaps:        d.Deviceparams.GIDMaps,
+		WhiteoutFormat: archive.OverlayWhiteoutFormat}
 	if err := untar(diffTar, d.Deviceparams.Mnt, tarOpts); err != nil {
 		return err
 	}
@@ -558,10 +570,10 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 
 	// clean up crypt setup
 	if d.Type == ConstTypeCrypt {
-		if err := executeLuksCommand( ConstLuksCmdClose, "",
+		if err := executeLuksCommand(ConstLuksCmdClose, "",
 			d.getCryptName(), d.Cryptparams); err != nil {
-				logrus.Errorf("secureoverlay2: VirtualDevice ImportData, failed to close crypt device, error: %s", err.Error())
-			}
+			logrus.Errorf("secureoverlay2: VirtualDevice ImportData, failed to close crypt device, error: %s", err.Error())
+		}
 	}
 
 	// NOTE: After this import triggered by graphdriver securityTransform(), the daemon will issue a
@@ -572,12 +584,12 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 	// However, this itself also doesn't works as
 	// - vDev.Get() with current object in securityTransform doesn't match the vDev.Name as defined by d.Put() but ..
 	// - .. we also had to use a different name there as in case of squash there IS actualy a concurrent Get() with crypto!
-        // skipping the image.Put here also doesn't work as then in the squash case there would be no cleanup
+	// skipping the image.Put here also doesn't work as then in the squash case there would be no cleanup
 	// => so we just just ignore any other crypto-cleanup related errors in vDev.Put() ...
 
 	if err := d.Image.Put(); err != nil {
 		logrus.Errorf("secureoverlay2: VirtualDevice ImportData, failed to put image back, error: %s", err.Error())
-		return err;
+		return err
 	}
 
 	logrus.Debug("secureoverlay2: VirtualDevice ImportData returns")
@@ -589,7 +601,9 @@ func (d *VirtualDevice) ImportData(diffTar io.Reader) error {
 func (d *VirtualDevice) Get() error {
 	logrus.Debugf("secureoverlay2: VirtualDevice Get called w. name %s, type %s", d.Name, d.Type)
 
-	if err := d.Image.Get(); err != nil {return err}
+	if err := d.Image.Get(); err != nil {
+		return err
+	}
 
 	// device path
 	dev := d.Image.devPath()
@@ -598,8 +612,10 @@ func (d *VirtualDevice) Get() error {
 	if d.Type == ConstTypeCrypt {
 		// open encrypted device
 		d.Cryptparams.ReadOnly = true
-		if err := executeLuksCommand( ConstLuksCmdOpen, dev,
-					d.getCryptName(), d.Cryptparams); err != nil {return err}
+		if err := executeLuksCommand(ConstLuksCmdOpen, dev,
+			d.getCryptName(), d.Cryptparams); err != nil {
+			return err
+		}
 
 		dev = path.Join(ConstDevMapperPrefix, d.getCryptName())
 
@@ -627,10 +643,10 @@ func (d *VirtualDevice) Put() error {
 
 	// clean up crypt setup, if exists
 	if d.Type == ConstTypeCrypt {
-		if err := executeLuksCommand( ConstLuksCmdClose, "",
-					d.getCryptName(), d.Cryptparams); err != nil {
+		if err := executeLuksCommand(ConstLuksCmdClose, "",
+			d.getCryptName(), d.Cryptparams); err != nil {
 			logrus.Debugf("secureoverlay2: VirtualDevice Put, ignoring luksClose failure: %s", err.Error())
-		        // See NOTE at end of ImportData() for reason why we ignore errors here
+			// See NOTE at end of ImportData() for reason why we ignore errors here
 		}
 	}
 

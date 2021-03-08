@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2019 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
@@ -7,12 +6,12 @@
 package losetup
 
 import (
-	"fmt"
-	"os"
 	"bytes"
-	"path/filepath"
-	"golang.org/x/sys/unix"
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+	"os"
+	"path/filepath"
 )
 
 // Add will add a loopback device if it does not exist already.
@@ -71,7 +70,9 @@ func Attach(backingFile string, offset uint64, ro bool) (Device, error) {
 	var dev Device
 
 	absPath, err := filepath.Abs(backingFile)
-	if err != nil { return dev, err }
+	if err != nil {
+		return dev, err
+	}
 
 	// check if backing file is already mounted
 	dev, err = GetDeviceFromBackingFilePath(absPath)
@@ -86,7 +87,7 @@ func Attach(backingFile string, offset uint64, ro bool) (Device, error) {
 			conflictPath = string(bytes.Trim(info.FileName[:], "\x00"))
 		}
 		logrus.Warningf("losetup: Attach of path %s might duplicate already attached (potentially truncated) path %s mapped to device %s  ", absPath, conflictPath, dev.Path())
- 		// logrus.Debugf("losetup: Attach trying to reuse loop-device %s for path %s", dev.Path(), absPath)
+		// logrus.Debugf("losetup: Attach trying to reuse loop-device %s for path %s", dev.Path(), absPath)
 
 		// flagCheck := os.O_RDWR
 		// if ro { flagCheck = os.O_RDONLY }
